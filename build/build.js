@@ -32,6 +32,12 @@ var builds = [
     format: 'cjs',
     out: 'dist/vue.common.js'
   },
+  // Weex runtime only (CommonJS). Used by bundlers e.g. Webpack & Browserify
+  {
+    entry: 'src/entries/weex-framework.js',
+    format: 'cjs',
+    out: 'dist/weex.common.js'
+  },
   // Minified runtime, only for filze size monitoring
   {
     entry: 'src/entries/web-runtime.js',
