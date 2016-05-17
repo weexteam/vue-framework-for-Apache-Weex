@@ -39,6 +39,13 @@ var builds = [
     env: 'production',
     out: 'dist/vue.common.min.js'
   },
+  // Weex minified runtime, only for filze size monitoring
+  {
+    entry: 'src/entries/weex-framework.js',
+    format: 'umd',
+    env: 'production',
+    out: 'dist/weex.common.min.js'
+  },
   // Runtime+compiler standalone developement build.
   {
     entry: 'src/entries/web-runtime-with-compiler.js',
@@ -67,6 +74,13 @@ var builds = [
     format: 'cjs',
     external: ['entities'],
     out: 'dist/compiler.js'
+  },
+  // Weex compiler (CommonJS).
+  {
+    entry: 'src/entries/weex-compiler.js',
+    format: 'cjs',
+    external: ['entities'],
+    out: 'dist/weex.compiler.js'
   },
   // Web server renderer (CommonJS).
   {
