@@ -1,4 +1,4 @@
-import { extend, isArray, cached, camelize } from 'shared/util'
+import { extend, cached, camelize } from 'shared/util'
 
 const normalize = cached(function (prop) {
   return camelize(prop)
@@ -28,7 +28,7 @@ function updateStyle (oldVnode, vnode) {
   let style = vnode.data.style || {}
 
   // handle array syntax
-  if (isArray(style)) {
+  if (Array.isArray(style)) {
     style = vnode.data.style = toObject(style)
   }
 
