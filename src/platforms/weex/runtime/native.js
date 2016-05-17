@@ -41,6 +41,7 @@ export function Node (tagName, data) {
   this.nextSibling = null
   this.children = []
   this.attached = false
+  this.nodeType = 3 // hack for vnode.elm detection
 }
 
 global.WeexNode = Node

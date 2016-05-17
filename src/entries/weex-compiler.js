@@ -2,7 +2,7 @@
 
 import { extend } from 'shared/util'
 import { compile as baseCompile } from 'compiler/index'
-import modules from 'web/compiler/modules/index'
+import modules from 'weex/compiler/modules/index'
 import directives from 'weex/compiler/directives/index'
 import { isReservedTag, isUnaryTag, mustUseProp, getTagNamespace } from 'weex/util'
 

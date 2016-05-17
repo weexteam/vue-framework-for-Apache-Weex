@@ -1,3 +1,4 @@
+import { parseText } from 'compiler/parser/text-parser'
 import {
   getAndRemoveAttr,
   getBindingAttr
