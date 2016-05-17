@@ -41,3 +41,7 @@ export function tagName (node) {
 export function setTextContent (node, text) {
   node.setAttribute('value', text)
 }
+
+export function childNodes (node) {
+  return node.children
+}
