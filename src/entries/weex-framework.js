@@ -7,7 +7,7 @@ const globalInstance = {}
 const nativeModules = {}
 const nativeComponents = {}
 
-export const Vue = overrideVue(VueRuntime)
+const Vue = overrideVue(VueRuntime)
 
 function overrideVue (Vue) {
   const _init = Vue.prototype._init
@@ -37,6 +37,9 @@ function overrideVue (Vue) {
       const dataOption = options.data
       const data = (typeof dataOption === 'function' ? dataOption() : dataOption) || {}
       options.data = Object.assign(data, externalData)
+      if (instanceId) {
+        globalInstance[instanceId] = this
+      }
     }
 
     if (!options.globalConfig && parentOptions.globalConfig) {
@@ -84,9 +87,9 @@ global.createInstance = function createInstance (
 
   const start = new Function('Vue', '__weex_require_module__', appCode)
   const subVue = Vue.extend({})
-  const instance = start(subVue, requireNativeModule)
+  start(subVue, requireNativeModule)
+  const instance = globalInstance[instanceId]
   global.callNative(instanceId + '', [{ module: 'dom', method: 'createFinish', args: [] }])
-  globalInstance[instanceId] = instance
 }
 
 global.destroyInstance = function destroyInstance (instanceId) {
@@ -215,3 +218,5 @@ function typof (v) {
   const s = Object.prototype.toString.call(v)
   return s.substring(8, s.length - 1).toLowerCase()
 }
+
+export default Vue
