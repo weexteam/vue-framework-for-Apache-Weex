@@ -1,5 +1,7 @@
 /* @flow */
 
+import 'weex/polyfill'
+
 import Vue from 'core/index'
 import config from 'core/config'
 import { createPatchFunction } from 'core/vdom/patch'
