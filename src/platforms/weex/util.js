@@ -14,7 +14,7 @@ export function query (el, instanceId) {
   body.nodeId = '_root'
   body.attached = true
   const root = new Node('div')
-  // root._uselessNode = true // hack, it'a uselessNode for weex
+  root._uselessNode = true // hack, it'a uselessNode for weex
   body.appendChild(root)
   return root
 }
