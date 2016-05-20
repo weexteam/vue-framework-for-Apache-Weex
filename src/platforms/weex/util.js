@@ -11,7 +11,7 @@ export function isUnknownElement () { console.log('isUnknownElement') }
 export function query (el, instanceId) {
   const body = new Node(el)
   body.instanceId = instanceId
-  body.nodeId = '_root'
+  body.nodeId = '_body'
   body.attached = true
   const root = new Node('div')
   root._uselessNode = true // hack, it'a uselessNode for weex

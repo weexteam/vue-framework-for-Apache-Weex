@@ -81,10 +81,6 @@ global.createInstance = function createInstance (
     return output
   }
 
-  // create weex instance
-  global.callNative(instanceId + '', [{ module: 'dom', method: 'createBody',
-    args: [{ ref: '_root', type: 'list', attr: {}, style: {}}] }])
-
   const start = new Function('Vue', '__weex_require_module__', appCode)
   const subVue = Vue.extend({})
   start(subVue, requireNativeModule)

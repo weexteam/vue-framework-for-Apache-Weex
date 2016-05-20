@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "dev": "webpack --watch --config build/webpack.dist.dev.config.js",
+    "dev:weex": "webpack --watch --config build/webpack.weex.dev.config.js",
     "dev:test": "karma start build/karma.dev.config.js",
     "dev:ssr": "webpack --watch --config build/webpack.ssr.dev.config.js",
     "test": "npm run lint && flow check && npm run test:unit && npm run test:e2e && npm run test:ssr",

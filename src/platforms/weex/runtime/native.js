@@ -143,7 +143,11 @@ Node.prototype.appendChild = function appendChild (child) {
   }
 
   if (this.attached && !child._uselessNode) {
-    global.callNative(this.instanceId, [{ module: 'dom', method: 'addElement', args: [String(this.nodeId), child.toJSON(), -1] }])
+    if (this.nodeId === '_body') {
+      createBody(child)
+    } else {
+      global.callNative(this.instanceId, [{ module: 'dom', method: 'addElement', args: [String(this.nodeId), child.toJSON(), -1] }])
+    }
   }
 }
 
@@ -207,7 +211,11 @@ Node.prototype.insertBefore = function insertBefore (target, before) {
   } else if (this.attached && !target.attached) {
     target.attached = true
     attachAll(target)
-    global.callNative(this.instanceId, [{ module: 'dom', method: 'addElement', args: [String(this.nodeId), target.toJSON(), beforeIndex + 1] }])
+    if (this.nodeId === '_body') {
+      createBody(target)
+    } else {
+      global.callNative(this.instanceId, [{ module: 'dom', method: 'addElement', args: [String(this.nodeId), target.toJSON(), beforeIndex + 1] }])
+    }
   }
 }
 
@@ -261,6 +269,11 @@ function attachAll (node) {
     child.attached = attached
     attachAll(child)
   })
+}
+
+function createBody (node) {
+  node.nodeId = '_root'
+  global.callNative(node.instanceId, [{ module: 'dom', method: 'createBody', args: [node.toJSON()] }])
 }
 
 // function detachAll (node) {}
