@@ -5,13 +5,13 @@ const normalize = cached(function (prop) {
 })
 
 function createStyle (oldVnode, vnode) {
-  if (!vnode.data.style) {
+  if (!vnode.data.staticStyle) {
     return
   }
   const elm = vnode.elm
   const staticStyle = vnode.data.staticStyle
   for (const name in staticStyle) {
-    if (!staticStyle[name]) {
+    if (staticStyle[name]) {
       elm.setStyle(normalize(name), staticStyle[name])
     }
   }
