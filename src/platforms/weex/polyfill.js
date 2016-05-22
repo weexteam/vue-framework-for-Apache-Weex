@@ -39,14 +39,16 @@ if (typeof console === 'undefined') {
   };
 }
 
-Object.assign = function () {
-  var args = Array.prototype.slice.call(arguments)
-  var dest = args[0] || {}
-  var srcList = args.slice(1)
-  srcList.forEach(function (src) {
-    for (var key in src) {
-      dest[key] = src[key]
-    }
-  })
-  return dest
+if (typeof Object.assign === 'undefined') {
+  Object.assign = function () {
+    var args = Array.prototype.slice.call(arguments)
+    var dest = args[0] || {}
+    var srcList = args.slice(1)
+    srcList.forEach(function (src) {
+      for (var key in src) {
+        dest[key] = src[key]
+      }
+    })
+    return dest
+  }
 }
