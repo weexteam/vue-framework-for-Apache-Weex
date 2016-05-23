@@ -49,12 +49,14 @@ function overrideVue (Vue) {
     if (!options.methodConfig && parentOptions.methodConfig) {
       options.methodConfig = parentOptions.methodConfig
     }
+
+    options.stream = true
   }
 
   return Vue
 }
 
-global.createInstance = function createInstance (
+export function createInstance (
   instanceId, appCode, config /* {bundleUrl, debug} */, data) {
   const methodConfig = { callbacks: [], events: [], uid: 1 }
   globalMethodConfig[instanceId] = methodConfig
@@ -88,14 +90,14 @@ global.createInstance = function createInstance (
   global.callNative(instanceId + '', [{ module: 'dom', method: 'createFinish', args: [] }])
 }
 
-global.destroyInstance = function destroyInstance (instanceId) {
+export function destroyInstance (instanceId) {
   const instance = globalInstance[instanceId]
   delete globalInstance[instanceId]
   delete globalMethodConfig[instanceId]
   instance.$destroy()
 }
 
-global.refreshInstance = function refreshInstance (instanceId, data) {
+export function refreshInstance (instanceId, data) {
   const instance = globalInstance[instanceId]
   for (const key in data) {
     Vue.set(instance, key, data[key])
@@ -103,12 +105,12 @@ global.refreshInstance = function refreshInstance (instanceId, data) {
   global.callNative(instanceId + '', [{ module: 'dom', method: 'refreshFinish', args: [] }])
 }
 
-global.getRoot = function getRoot (instanceId) {
+export function getRoot (instanceId) {
   const instance = globalInstance[instanceId]
   return instance.$el.toJSON()
 }
 
-global.callJS = function callJS (instanceId, tasks) {
+export function callJS (instanceId, tasks) {
   const methodConfig = globalMethodConfig[instanceId] || {}
 
   tasks.forEach(task => {
@@ -148,7 +150,7 @@ global.callJS = function callJS (instanceId, tasks) {
   })
 }
 
-global.registerModules = function registerModules (modules) {
+export function registerModules (modules) {
   for (const name in modules) {
     if (!nativeModules[name]) {
       nativeModules[name] = {}
@@ -159,7 +161,7 @@ global.registerModules = function registerModules (modules) {
   }
 }
 
-global.registerComponents = function registerComponents (components) {
+export function registerComponents (components) {
   const config = Vue.config
   const newComponents = {}
   if (Array.isArray(components)) {
@@ -214,5 +216,3 @@ function typof (v) {
   const s = Object.prototype.toString.call(v)
   return s.substring(8, s.length - 1).toLowerCase()
 }
-
-export default Vue
