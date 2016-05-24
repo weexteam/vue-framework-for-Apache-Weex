@@ -56,8 +56,6 @@ function overrideVue (Vue) {
     if (!options.methodConfig && parentOptions.methodConfig) {
       options.methodConfig = parentOptions.methodConfig
     }
-
-    options.stream = true
   }
 
   return Vue
