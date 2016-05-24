@@ -7,7 +7,7 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, '../dist'),
     filename: 'weex.js',
-    library: 'Vue',
+    // library: 'Vue',
     libraryTarget: 'commonjs'
   },
   resolve: {

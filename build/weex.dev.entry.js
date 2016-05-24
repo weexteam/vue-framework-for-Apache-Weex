@@ -1,1 +1,1 @@
-module.exports = require('../src/entries/weex-framework')['default']
+module.exports = require('../src/entries/weex-framework')
