@@ -12,8 +12,15 @@ const Vue = overrideVue(VueRuntime)
 function overrideVue (Vue) {
   const _init = Vue.prototype._init
   Vue.prototype._init = function (options = {}) {
-    options.init = options.init ? [wxInit].concat(options.init) : wxInit
+    if (options._isComponent) {
+      options._extension = {init: wxInit}
+    } else {
+      options.init = options.init ? [wxInit].concat(options.init) : wxInit
+    }
     _init.call(this, options)
+  }
+  Vue.prototype.$getConfig = function () {
+    return this.$options.globalConfig
   }
 
   function wxInit () {
