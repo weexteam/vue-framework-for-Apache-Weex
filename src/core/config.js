@@ -1,15 +1,19 @@
 /* @flow */
 
+import { no } from 'shared/util'
+
 export type Config = {
   preserveWhitespace: boolean,
   optionMergeStrategies: { [key: string]: Function },
   silent: boolean,
-  isReservedTag: (x: string) => boolean,
-  isUnknownElement: (x: string) => boolean,
+  isReservedTag: (x?: string) => boolean,
+  isUnknownElement: (x?: string) => boolean,
+  mustUseProp: (x?: string) => boolean,
   _assetTypes: Array<string>,
   _lifecycleHooks: Array<string>,
   _maxUpdateCount: number,
-  _isServer: boolean
+  _isServer: boolean,
+  _ctors: Array<Function>
 }
 
 const config: Config = {
@@ -33,13 +37,19 @@ const config: Config = {
    * Check if a tag is reserved so that it cannot be registered as a
    * component. This is platform-dependent and may be overwritten.
    */
-  isReservedTag: _ => false,
+  isReservedTag: no,
 
   /**
    * Check if a tag is an unknown element.
    * Platform-dependent.
    */
-  isUnknownElement: _ => false,
+  isUnknownElement: no,
+
+  /**
+   * Check if an attribute must be bound using property, e.g. value
+   * Platform-dependent.
+   */
+  mustUseProp: no,
 
   /**
    * List of asset types that a component can own.
@@ -73,7 +83,14 @@ const config: Config = {
   /**
    * Server rendering?
    */
-  _isServer: process.env.VUE_ENV === 'server'
+  _isServer: process.env.VUE_ENV === 'server',
+
+  /**
+   * Keeping track of all extended Component constructors
+   * so that we can update them in the case of global mixins being applied
+   * after their creation.
+   */
+  _ctors: []
 }
 
 export default config

@@ -81,6 +81,13 @@ describe('codegen', () => {
     )
   })
 
+  it('generate v-bind directive', () => {
+    assertCodegen(
+      '<p v-bind="test"></p>',
+      `with(this){return _h(_e('p',{hook:{"construct":function(n1,n2){_b(n1,test)}}}))}`
+    )
+  })
+
   it('generate template tag', () => {
     assertCodegen(
       '<template><p>hello world</p></template>',
@@ -156,7 +163,7 @@ describe('codegen', () => {
   it('generate style binding', () => {
     assertCodegen(
       '<p :style="error">hello world</p>',
-      `with(this){return _h(_e('p',{style:error}),[_t("hello world")])}`
+      `with(this){return _h(_e('p',{style:(error)}),[_t("hello world")])}`
     )
   })
 

@@ -30,12 +30,12 @@ function applyDirectives (
       if (fn) {
         // only call update if value has changed
         if (isUpdate && oldDirs) {
-          const oldValue = oldDirs[i].value
+          const oldValue = dir.oldValue = oldDirs[i].value
           if (oldValue === dir.value) {
             continue
           }
         }
-        fn(vnode.elm, dir.value, dir.modifiers, vnode, oldVnode)
+        fn(vnode.elm, dir, vnode, oldVnode)
       }
     }
   }
