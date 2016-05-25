@@ -1,4 +1,4 @@
-import VueRuntime from './weex-runtime'
+import Vue from './weex-runtime'
 import { Node } from 'weex/runtime/native'
 
 const globalState = {}
@@ -7,28 +7,15 @@ const globalInstance = {}
 const nativeModules = {}
 const nativeComponents = {}
 
-const Vue = overrideVue(VueRuntime)
-
-function overrideVue (Vue) {
-  const _init = Vue.prototype._init
-  Vue.prototype._init = function (options = {}) {
-    if (options._isComponent) {
-      options._extension = {init: wxInit}
-    } else {
-      options.init = options.init ? [wxInit].concat(options.init) : wxInit
-    }
-    _init.call(this, options)
-  }
-  Vue.prototype.$getConfig = function () {
-    return this.$options.globalConfig
-  }
-
-  function wxInit () {
+Vue.mixin({
+  init () {
     const options = this.$options
     const parentOptions = (options.parent && options.parent.$options) || {}
 
     // root vm
     if (options.el) {
+
+      // record instance info
       const instanceId = globalState.currentInstanceId
       const config = globalState.currentInstanceConfig
       const externalData = globalState.currentInstanceData
@@ -41,24 +28,30 @@ function overrideVue (Vue) {
       options.instanceId = instanceId
       options.globalConfig = config
       options.methodConfig = methodConfig
+
+      // set external data of instance
       const dataOption = options.data
       const data = (typeof dataOption === 'function' ? dataOption() : dataOption) || {}
       options.data = Object.assign(data, externalData)
+
+      // record instance by id
       if (instanceId) {
         globalInstance[instanceId] = this
       }
     }
 
+    // inherit instance config
     if (!options.globalConfig && parentOptions.globalConfig) {
       options.globalConfig = parentOptions.globalConfig
     }
-
     if (!options.methodConfig && parentOptions.methodConfig) {
       options.methodConfig = parentOptions.methodConfig
     }
   }
+})
 
-  return Vue
+Vue.prototype.$getConfig = function () {
+  return this.$options.globalConfig
 }
 
 export function createInstance (
