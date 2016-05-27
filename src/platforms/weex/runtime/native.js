@@ -27,7 +27,6 @@
  */
 
 let latestNodeId = 1
-// let hackFirstNode = true
 
 export function Node (tagName, data) {
   data = data || {}
@@ -104,6 +103,7 @@ Node.prototype.addEventListener = function addEventListener (type, handler, ctx)
   let descriptor = ctx.events[this.nodeId]
   if (!descriptor) {
     descriptor = ctx.events[this.nodeId] = { context: ctx, el: this, handlers: {}}
+    this.ctx = ctx
   }
   if (!descriptor.handlers[type]) {
     descriptor.handlers[type] = []
@@ -123,6 +123,7 @@ Node.prototype.appendChild = function appendChild (child) {
   if (child.nodeType === 1) {
     if (this.tagName === 'text') {
       this.setAttribute('value', child.text)
+      child.parentNode = this
     }
     return
   }
@@ -176,6 +177,7 @@ Node.prototype.insertBefore = function insertBefore (target, before) {
   if (target.nodeType === 1) {
     if (this.tagName === 'text') {
       this.setAttribute('value', target.text)
+      target.parentNode = this
     }
     return
   }
@@ -214,10 +216,10 @@ Node.prototype.insertBefore = function insertBefore (target, before) {
 
   // this.parentNode
   // this.nextSibling
-  this.children.splice(beforeIndex + 1, null, target)
+  this.children.splice(beforeIndex, null, target)
 
   target.parentNode = this
-  target.nextSibling = children[beforeIndex + 2]
+  target.nextSibling = children[beforeIndex]
   // target.children
 
   if (before) {
@@ -227,14 +229,14 @@ Node.prototype.insertBefore = function insertBefore (target, before) {
   }
 
   if (this.attached && target.attached) {
-    global.callNative(this.instanceId, [{ module: 'dom', method: 'moveElement', args: [String(target.nodeId), this.nodeId, beforeIndex + 1] }])
+    global.callNative(this.instanceId, [{ module: 'dom', method: 'moveElement', args: [String(target.nodeId), this.nodeId, beforeIndex] }])
   } else if (this.attached && !target.attached) {
     target.attached = true
     attachAll(target)
     if (this.nodeId === '_body') {
       createBody(target)
     } else {
-      global.callNative(this.instanceId, [{ module: 'dom', method: 'addElement', args: [String(this.nodeId), target.toJSON(), beforeIndex + 1] }])
+      global.callNative(this.instanceId, [{ module: 'dom', method: 'addElement', args: [String(this.nodeId), target.toJSON(), beforeIndex] }])
     }
   }
 }
@@ -292,6 +294,11 @@ function attachAll (node) {
 }
 
 function createBody (node) {
+  const oldNodeId = node.nodeId
+  if (node.ctx) {
+    node.ctx.events._root = node.ctx.events[oldNodeId]
+    delete node.ctx.events[oldNodeId]
+  }
   node.nodeId = '_root'
   const json = node.toJSON()
   const children = json.children
