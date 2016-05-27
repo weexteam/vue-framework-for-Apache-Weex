@@ -293,7 +293,13 @@ function attachAll (node) {
 
 function createBody (node) {
   node.nodeId = '_root'
-  global.callNative(node.instanceId, [{ module: 'dom', method: 'createBody', args: [node.toJSON()] }])
+  const json = node.toJSON()
+  const children = json.children
+  json.children = []
+  global.callNative(node.instanceId, [{ module: 'dom', method: 'createBody', args: [json] }])
+  children.forEach(child => {
+    global.callNative(node.instanceId, [{ module: 'dom', method: 'addElement', args: [String(json.ref), child, -1] }])
+  })
 }
 
 // function detachAll (node) {}
