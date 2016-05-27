@@ -6,14 +6,11 @@ module.exports = {
   entry: path.resolve(__dirname, 'weex.dev.entry.js'),
   output: {
     path: path.resolve(__dirname, '../dist'),
-    filename: 'weex.js',
-    // library: 'Vue',
+    filename: 'weex.common.js',
     libraryTarget: 'commonjs'
   },
   resolve: {
-    alias: Object.assign({}, alias, {
-      // entities: './entity-decoder'
-    })
+    alias: Object.assign({}, alias)
   },
   module: {
     loaders: [
