@@ -56,7 +56,7 @@ Vue.prototype.$getConfig = function () {
 
 export function createInstance (
   instanceId, appCode, config /* {bundleUrl, debug} */, data) {
-  const methodConfig = { callbacks: [], events: [], uid: 1 }
+  const methodConfig = { callbacks: [], events: {}, uid: 1 }
   globalMethodConfig[instanceId] = methodConfig
 
   globalState.currentInstanceId = instanceId
@@ -118,12 +118,12 @@ export function callJS (instanceId, tasks) {
       const nodeId = args[0]
       const type = args[1]
       const e = args[2] || {}
-      const node = methodConfig.events[nodeId]
-      const context = node.context
-      const handlers = node.handlers[type]
+      const info = methodConfig.events[nodeId]
+      const context = info.context
+      const handlers = info.handlers[type]
 
       e.type = type
-      e.target = node.el
+      e.target = info.el
       e.timestamp = Date.now()
 
       handlers.forEach(handle => {
