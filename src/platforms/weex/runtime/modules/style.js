@@ -6,6 +6,7 @@ const normalize = cached(function (prop) {
 
 function createStyle (oldVnode, vnode) {
   if (!vnode.data.staticStyle) {
+    updateStyle(oldVnode, vnode)
     return
   }
   const elm = vnode.elm
