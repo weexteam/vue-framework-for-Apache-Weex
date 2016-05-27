@@ -1,4 +1,4 @@
-import { Node } from './native'
+import { Node, TextNode } from './native'
 
 export const namespaceMap = {}
 
@@ -11,7 +11,7 @@ export function createElementNS (namespace, tagName) {
 }
 
 export function createTextNode (text) {
-  return new Node('text', { attr: { value: text }})
+  return new TextNode(text)
 }
 
 export function insertBefore (node, target, before) {

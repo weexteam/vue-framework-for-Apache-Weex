@@ -44,7 +44,13 @@ export function Node (tagName, data) {
   this.nodeType = 3 // hack for vnode.elm detection
 }
 
-global.WeexNode = Node
+export function TextNode (text) {
+  this.instanceId = ''
+  this.nodeId = latestNodeId++
+  this.parentNode = null
+  this.nodeType = 1
+  this.text = text
+}
 
 Node.prototype.setAttribute = function setAttribute (key, value) {
   if (this.attr[key] === value) {
@@ -114,6 +120,13 @@ Node.prototype.appendChild = function appendChild (child) {
     return
   }
 
+  if (child.nodeType === 1) {
+    if (this.tagName === 'text') {
+      this.setAttribute('value', child.text)
+    }
+    return
+  }
+
   const children = this.children
   const length = children.length
   const lastChild = children[length - 1]
@@ -157,6 +170,13 @@ Node.prototype.insertBefore = function insertBefore (target, before) {
   }
 
   if (before && before.nextSibling === target) {
+    return
+  }
+
+  if (target.nodeType === 1) {
+    if (this.tagName === 'text') {
+      this.setAttribute('value', target.text)
+    }
     return
   }
 
