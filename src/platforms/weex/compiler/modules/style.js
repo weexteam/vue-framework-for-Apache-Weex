@@ -1,8 +1,13 @@
+import { cached, camelize } from 'shared/util'
 import { parseText } from 'compiler/parser/text-parser'
 import {
   getAndRemoveAttr,
   getBindingAttr
 } from 'compiler/helpers'
+
+const normalize = cached(function (prop) {
+  return camelize(prop)
+})
 
 function parse (el, options) {
   const staticStyle = getAndRemoveAttr(el, 'style')
@@ -40,7 +45,7 @@ function parseStaticStyle (staticStyle, options) {
       if (result.length !== 2) {
         return
       }
-      const key = result[0].trim()
+      const key = normalize(result[0].trim())
       const value = result[1].trim()
       const dynamicValue = parseText(value, options.delimiters)
       if (dynamicValue) {
