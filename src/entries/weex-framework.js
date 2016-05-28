@@ -82,7 +82,10 @@ export function createInstance (
   }
 
   const start = new Function('Vue', '__weex_require_module__', appCode)
-  const subVue = Vue.extend({})
+  const subVue = Vue.extend({});
+  ['util', 'set', 'del', 'nextTick', 'use'].forEach(name => {
+    subVue[name] = Vue[name]
+  })
   start(subVue, requireNativeModule)
   const instance = globalInstance[instanceId]
   global.callNative(instanceId + '', [{ module: 'dom', method: 'createFinish', args: [] }])
