@@ -81,5 +81,8 @@
     "selenium-server": "2.53.0",
     "uglify-js": "^2.6.2",
     "webpack": "^1.13.1"
+  },
+  "dependencies": {
+    "weex-styler": "0.0.17"
   }
 }
