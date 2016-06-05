@@ -96,22 +96,22 @@ export function createComponentInstanceForVnode (
   return new vnodeComponentOptions.Ctor(options)
 }
 
-function init (vnode: VNode) {
+function init (vnode: VNodeWithData, hydrating: boolean) {
   const child = vnode.child = createComponentInstanceForVnode(vnode)
-  child.$mount()
+  child.$mount(hydrating ? vnode.elm : undefined, hydrating)
 }
 
 function prepatch (
   oldVnode: MountedComponentVNode,
   vnode: MountedComponentVNode
 ) {
-  const { listeners, propsData, children } = vnode.componentOptions
+  const options = vnode.componentOptions
   vnode.child = oldVnode.child
   vnode.child._updateFromParent(
-    propsData, // updated props
-    listeners, // updated listeners
+    options.propsData, // updated props
+    options.listeners, // updated listeners
     vnode, // new parent vnode
-    children // new children
+    options.children // new children
   )
 }
 
@@ -127,9 +127,7 @@ function resolveAsyncComponent (
   factory: Function,
   cb: Function
 ): Class<Component> | void {
-  if (factory.resolved) {
-    return factory.resolved
-  } else if (factory.requested) {
+  if (factory.requested) {
     // pool callbacks
     factory.pendingCallbacks.push(cb)
   } else {
@@ -178,7 +176,7 @@ function extractProps (data: VNodeData, Ctor: Class<Component>): ?Object {
   const attrs = data.attrs
   const props = data.props
   const staticAttrs = data.staticAttrs
-  if (!attrs && !props) {
+  if (!attrs && !props && !staticAttrs) {
     return res
   }
   for (const key in propOptions) {

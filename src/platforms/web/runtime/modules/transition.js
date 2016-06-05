@@ -2,7 +2,7 @@
 
 import { addClass, removeClass } from '../class-util'
 import { inBrowser, resolveAsset } from 'core/util/index'
-import { cached, remove } from 'shared/util'
+import { cached, remove, extend } from 'shared/util'
 import { isIE9 } from 'web/util/index'
 
 const hasTransition = inBrowser && !isIE9
@@ -10,11 +10,12 @@ const TRANSITION = 'transition'
 const ANIMATION = 'animation'
 
 // Transition property/event sniffing
-let transitionProp = 'transition'
-let transitionEndEvent = 'transitionend'
-let animationProp = 'animation'
-let animationEndEvent = 'animationend'
+export let transitionProp = 'transition'
+export let transitionEndEvent = 'transitionend'
+export let animationProp = 'animation'
+export let animationEndEvent = 'animationend'
 if (hasTransition) {
+  /* istanbul ignore if */
   if (window.ontransitionend === undefined &&
     window.onwebkittransitionend !== undefined) {
     transitionProp = 'WebkitTransition'
@@ -28,7 +29,7 @@ if (hasTransition) {
 }
 
 const raf = (inBrowser && window.requestAnimationFrame) || setTimeout
-function nextFrame (fn) {
+export function nextFrame (fn: Function) {
   raf(() => {
     raf(fn)
   })
@@ -45,49 +46,66 @@ export function enter (vnode: VNodeWithData) {
   if (!data) {
     return
   }
-  if (!vnode.context.$root._isMounted && !data.appear) {
+  const isAppear = !vnode.context.$root._isMounted
+  if (isAppear && !data.appear && data.appear !== '') {
     return
   }
 
   const {
+    css,
     enterClass,
     enterActiveClass,
+    appearClass,
+    appearActiveClass,
     beforeEnter,
-    enter,
+    onEnter,
     afterEnter,
-    enterCancelled
-  } = resolveTransition(data.definition, vnode.context)
+    enterCancelled,
+    beforeAppear,
+    onAppear,
+    afterAppear,
+    appearCancelled
+  } = resolveTransition(data, vnode.context)
 
-  const userWantsControl = enter && enter.length > 1
+  const startClass = isAppear ? appearClass : enterClass
+  const activeClass = isAppear ? appearActiveClass : enterActiveClass
+  const beforeEnterHook = isAppear ? (beforeAppear || beforeEnter) : beforeEnter
+  const enterHook = isAppear ? (onAppear || onEnter) : onEnter
+  const afterEnterHook = isAppear ? (afterAppear || afterEnter) : afterEnter
+  const enterCancelledHook = isAppear ? (appearCancelled || enterCancelled) : enterCancelled
+
+  const expectsCSS = css !== false
+  const userWantsControl = enterHook && enterHook.length > 1
   const cb = el._enterCb = once(() => {
-    if (enterActiveClass) {
-      removeTransitionClass(el, enterActiveClass)
+    if (expectsCSS) {
+      removeTransitionClass(el, activeClass)
     }
     if (cb.cancelled) {
-      enterCancelled && enterCancelled(el)
+      if (expectsCSS) {
+        removeTransitionClass(el, startClass)
+      }
+      enterCancelledHook && enterCancelledHook(el)
     } else {
-      afterEnter && afterEnter(el)
+      afterEnterHook && afterEnterHook(el)
     }
     el._enterCb = null
   })
 
-  beforeEnter && beforeEnter(el)
-  if (enterClass) {
-    addTransitionClass(el, enterClass)
+  beforeEnterHook && beforeEnterHook(el)
+  if (expectsCSS) {
+    addTransitionClass(el, startClass)
     nextFrame(() => {
-      removeTransitionClass(el, enterClass)
-    })
-  }
-  if (enterActiveClass) {
-    nextFrame(() => {
-      addTransitionClass(el, enterActiveClass)
-      if (!userWantsControl) {
-        whenTransitionEnds(el, cb)
+      removeTransitionClass(el, startClass)
+      if (!cb.cancelled) {
+        addTransitionClass(el, activeClass)
+        if (!userWantsControl) {
+          whenTransitionEnds(el, cb)
+        }
       }
     })
   }
-  enter && enter(el, cb)
-  if (!enterActiveClass && !userWantsControl) {
+  enterHook && enterHook(el, cb)
+  if (!expectsCSS && !userWantsControl) {
     cb()
   }
 }
@@ -105,20 +123,26 @@ export function leave (vnode: VNodeWithData, rm: Function) {
   }
 
   const {
+    css,
     leaveClass,
     leaveActiveClass,
     beforeLeave,
-    leave,
+    onLeave,
     afterLeave,
-    leaveCancelled
-  } = resolveTransition(data.definition, vnode.context)
+    leaveCancelled,
+    delayLeave
+  } = resolveTransition(data, vnode.context)
 
-  const userWantsControl = leave && leave.length > 1
+  const expectsCSS = css !== false
+  const userWantsControl = onLeave && onLeave.length > 1
   const cb = el._leaveCb = once(() => {
-    if (leaveActiveClass) {
+    if (expectsCSS) {
       removeTransitionClass(el, leaveActiveClass)
     }
     if (cb.cancelled) {
+      if (expectsCSS) {
+        removeTransitionClass(el, leaveClass)
+      }
       leaveCancelled && leaveCancelled(el)
     } else {
       rm()
@@ -127,43 +151,71 @@ export function leave (vnode: VNodeWithData, rm: Function) {
     el._leaveCb = null
   })
 
-  beforeLeave && beforeLeave(el)
-  if (leaveClass) {
-    addTransitionClass(el, leaveClass)
-    nextFrame(() => {
-      removeTransitionClass(el, leaveClass)
-    })
+  if (delayLeave) {
+    delayLeave(performLeave)
+  } else {
+    performLeave()
   }
-  if (leaveActiveClass) {
-    nextFrame(() => {
-      addTransitionClass(el, leaveActiveClass)
-      if (!userWantsControl) {
-        whenTransitionEnds(el, cb)
-      }
-    })
-  }
-  leave && leave(el, cb)
-  if (!leaveActiveClass && !userWantsControl) {
-    cb()
+
+  function performLeave () {
+    beforeLeave && beforeLeave(el)
+    if (expectsCSS) {
+      addTransitionClass(el, leaveClass)
+      nextFrame(() => {
+        removeTransitionClass(el, leaveClass)
+        if (!cb.cancelled) {
+          addTransitionClass(el, leaveActiveClass)
+          if (!userWantsControl) {
+            whenTransitionEnds(el, cb)
+          }
+        }
+      })
+    }
+    onLeave && onLeave(el, cb)
+    if (!expectsCSS && !userWantsControl) {
+      cb()
+    }
   }
 }
 
 function resolveTransition (id: string | Object, context: Component): Object {
-  let definition = id && typeof id === 'string'
-    ? resolveAsset(context.$options, 'transitions', id) || id
-    : id
-  if (definition === true) definition = 'v'
-  return typeof definition === 'string'
-    ? autoCssTransition(definition)
-    : definition
+  let def
+  if (id && typeof id === 'string') {
+    def = resolveAsset(context.$options, 'transitions', id)
+    return def
+      ? ensureTransitionClasses(def.name || id, def)
+      : autoCssTransition(id)
+  } else if (typeof id === 'object') { // inline transition object
+    if (id.name) {
+      def = resolveAsset(context.$options, 'transitions', id.name)
+    }
+    return def
+      ? extend(ensureTransitionClasses(id.name, def), id)
+      : ensureTransitionClasses(id.name, id)
+  } else {
+    return autoCssTransition('v')
+  }
+}
+
+function ensureTransitionClasses (name: ?string, def: Object): Object {
+  if (def.css === false) return def
+  name = name || 'v'
+  const key = `_cache_${name}`
+  if (def[key]) return def[key]
+  const res = def[key] = {}
+  extend(res, autoCssTransition(name))
+  extend(res, def)
+  return res
 }
 
 const autoCssTransition: (name: string) => Object = cached(name => {
   return {
     enterClass: `${name}-enter`,
     leaveClass: `${name}-leave`,
+    appearClass: `${name}-enter`,
     enterActiveClass: `${name}-enter-active`,
-    leaveActiveClass: `${name}-leave-active`
+    leaveActiveClass: `${name}-leave-active`,
+    appearActiveClass: `${name}-enter-active`
   }
 })
 
@@ -195,7 +247,7 @@ function whenTransitionEnds (el: Element, cb: Function) {
     if (ended < propCount) {
       end()
     }
-  }, timeout)
+  }, timeout + 1)
   el.addEventListener(event, onEnd)
 }
 

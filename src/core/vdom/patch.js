@@ -14,11 +14,11 @@ const emptyNode = new VNode('', {}, [])
 const hooks = ['create', 'update', 'postpatch', 'remove', 'destroy']
 
 function isUndef (s) {
-  return s === undefined
+  return s == null
 }
 
 function isDef (s) {
-  return s !== undefined
+  return s != null
 }
 
 function sameVnode (vnode1, vnode2) {
@@ -221,16 +221,23 @@ export function createPatchFunction (backend) {
           newStartVnode = newCh[++newStartIdx]
         } else {
           elmToMove = oldCh[idxInOld]
+          /* istanbul ignore if */
           if (process.env.NODE_ENV !== 'production' && !elmToMove) {
             warn(
-              'Duplicate track-by key: ' + idxInOld + '. ' +
-              'Make sure each v-for item has a unique track-by key.'
+              'It seems there are duplicate keys that is causing an update error. ' +
+              'Make sure each v-for item has a unique key.'
             )
           }
-          patchVnode(elmToMove, newStartVnode, insertedVnodeQueue)
-          oldCh[idxInOld] = undefined
-          nodeOps.insertBefore(parentElm, elmToMove.elm, oldStartVnode.elm)
-          newStartVnode = newCh[++newStartIdx]
+          if (elmToMove.tag !== newStartVnode.tag) {
+            // same key but different element. treat as new element
+            nodeOps.insertBefore(parentElm, createElm(newStartVnode, insertedVnodeQueue), oldStartVnode.elm)
+            newStartVnode = newCh[++newStartIdx]
+          } else {
+            patchVnode(elmToMove, newStartVnode, insertedVnodeQueue)
+            oldCh[idxInOld] = undefined
+            nodeOps.insertBefore(parentElm, newStartVnode.elm, oldStartVnode.elm)
+            newStartVnode = newCh[++newStartIdx]
+          }
         }
       }
     }
@@ -247,21 +254,10 @@ export function createPatchFunction (backend) {
     if (isDef(i = vnode.data) && isDef(hook = i.hook) && isDef(i = hook.prepatch)) {
       i(oldVnode, vnode)
     }
-    // skip nodes with v-pre
-    if (isDef(i = vnode.data) && i.pre) {
-      return
-    }
-    let elm = vnode.elm = oldVnode.elm
+    const elm = vnode.elm = oldVnode.elm
     const oldCh = oldVnode.children
     const ch = vnode.children
     if (oldVnode === vnode) return
-    if (!sameVnode(oldVnode, vnode)) {
-      const parentElm = nodeOps.parentNode(oldVnode.elm)
-      elm = createElm(vnode, insertedVnodeQueue)
-      nodeOps.insertBefore(parentElm, elm, oldVnode.elm)
-      removeVnodes(parentElm, [oldVnode], 0, 0)
-      return
-    }
     if (isDef(vnode.data)) {
       for (i = 0; i < cbs.update.length; ++i) cbs.update[i](oldVnode, vnode)
       if (isDef(hook) && isDef(i = hook.update)) i(oldVnode, vnode)
@@ -301,7 +297,7 @@ export function createPatchFunction (backend) {
     vnode.elm = elm
     const { tag, data, children } = vnode
     if (isDef(data)) {
-      if (isDef(i = data.hook) && isDef(i = i.init)) i(vnode)
+      if (isDef(i = data.hook) && isDef(i = i.init)) i(vnode, true /* hydrating */)
       if (isDef(i = vnode.child)) {
         // child component. it should have hydrated its own tree.
         invokeCreateHooks(vnode, insertedVnodeQueue)
@@ -342,7 +338,7 @@ export function createPatchFunction (backend) {
     }
   }
 
-  return function patch (oldVnode, vnode) {
+  return function patch (oldVnode, vnode, hydrating) {
     let elm, parent
     const insertedVnodeQueue = []
 
@@ -360,6 +356,9 @@ export function createPatchFunction (backend) {
           // a successful hydration.
           if (oldVnode.hasAttribute('server-rendered')) {
             oldVnode.removeAttribute('server-rendered')
+            hydrating = true
+          }
+          if (hydrating) {
             if (hydrate(oldVnode, vnode, insertedVnodeQueue)) {
               invokeInsertHook(insertedVnodeQueue)
               return oldVnode
@@ -383,6 +382,8 @@ export function createPatchFunction (backend) {
         if (parent !== null) {
           nodeOps.insertBefore(parent, vnode.elm, nodeOps.nextSibling(elm))
           removeVnodes(parent, [oldVnode], 0, 0)
+        } else if (isDef(oldVnode.tag)) {
+          invokeDestroyHook(oldVnode)
         }
       }
     }

@@ -4,7 +4,7 @@ import config from '../config'
 import VNode, { emptyVNode } from '../vdom/vnode'
 import { normalizeChildren } from '../vdom/helpers'
 import {
-  warn, bind, remove, isObject, toObject,
+  warn, bind, isObject, toObject,
   nextTick, resolveAsset, renderString
 } from '../util/index'
 
@@ -63,6 +63,13 @@ export function renderMixin (Vue: Class<Component>) {
     let vnode = render.call(vm._renderProxy)
     // return empty vnode in case the render function errored out
     if (!(vnode instanceof VNode)) {
+      if (process.env.NODE_ENV !== 'production' && Array.isArray(vnode)) {
+        warn(
+          'Multiple root nodes returned from render function. Render function ' +
+          'should return a single root node.',
+          vm
+        )
+      }
       vnode = emptyVNode
     }
     // set parent
@@ -114,34 +121,6 @@ export function renderMixin (Vue: Class<Component>) {
     return ret
   }
 
-  // register ref
-  Vue.prototype._r = function (
-    key: string,
-    ref: Vue | Element,
-    vFor: boolean,
-    isRemoval: boolean
-  ) {
-    const vm: Component = this
-    const refs = vm.$refs
-    if (isRemoval) {
-      if (Array.isArray(refs[key])) {
-        remove(refs[key], ref)
-      } else {
-        refs[key] = undefined
-      }
-    } else {
-      if (vFor) {
-        if (Array.isArray(refs[key])) {
-          refs[key].push(ref)
-        } else {
-          refs[key] = [ref]
-        }
-      } else {
-        refs[key] = ref
-      }
-    }
-  }
-
   // apply v-bind object
   Vue.prototype._b = function (vnode: VNodeWithData, value: any) {
     if (value) {
@@ -184,9 +163,8 @@ function resolveSlots (
     const children = normalizeChildren(renderChildren)
     const slots = {}
     const defaultSlot = []
-    let i = children.length
     let name, child
-    while (i--) {
+    for (let i = 0, l = children.length; i < l; i++) {
       child = children[i]
       if ((name = child.data && child.data.slot)) {
         const slot = (slots[name] || (slots[name] = []))

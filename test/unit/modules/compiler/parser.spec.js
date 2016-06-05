@@ -115,8 +115,8 @@ describe('parser', () => {
     expect(liAst.iterator).toBe('index')
   })
 
-  it('v-for directive track-by', () => {
-    const ast = parse('<ul><li v-for="item in items" track-by="item.uid"></li><ul>', baseOptions)
+  it('v-for directive key', () => {
+    const ast = parse('<ul><li v-for="item in items" :key="item.uid"></li><ul>', baseOptions)
     const liAst = ast.children[0]
     expect(liAst.for).toBe('items')
     expect(liAst.alias).toBe('item')
@@ -227,13 +227,11 @@ describe('parser', () => {
   it('transition', () => {
     const ast = parse('<p v-if="show" transition="expand">hello world</p>', baseOptions)
     expect(ast.transition).toBe('"expand"')
-    expect(ast.transitionOnAppear).toBe(false)
   })
 
   it('transition with empty', () => {
     const ast = parse('<p v-if="show" transition="">hello world</p>', baseOptions)
     expect(ast.transition).toBe(true)
-    expect(ast.transitionOnAppear).toBe(false)
   })
 
   it('attribute with v-bind', () => {

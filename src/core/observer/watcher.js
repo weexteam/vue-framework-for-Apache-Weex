@@ -1,5 +1,6 @@
 /* @flow */
 
+import config from '../config'
 import Dep from './dep'
 import { queueWatcher } from './scheduler'
 import {
@@ -7,7 +8,6 @@ import {
   remove,
   isObject,
   parsePath,
-  nextTick,
   _Set as Set
 } from '../util/index'
 
@@ -98,8 +98,12 @@ export default class Watcher {
             this.vm
           )
         }
-        // throw the error on next tick so that it doesn't break the whole app
-        nextTick(() => { throw e })
+        /* istanbul ignore else */
+        if (config.errorHandler) {
+          config.errorHandler.call(null, e, this.vm)
+        } else {
+          warn(e.stack)
+        }
       }
       // return old value when evaluation fails so the current UI is preserved
       value = this.value

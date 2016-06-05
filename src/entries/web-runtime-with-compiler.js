@@ -12,7 +12,10 @@ const idToTemplate = cached(id => {
 })
 
 const mount = Vue.prototype.$mount
-Vue.prototype.$mount = function (el: string | Element): Component {
+Vue.prototype.$mount = function (
+  el?: string | Element,
+  hydrating?: boolean
+): Component {
   el = el && query(el)
   const options = this.$options
   // resolve template/el and convert to render function
@@ -26,7 +29,10 @@ Vue.prototype.$mount = function (el: string | Element): Component {
       } else if (template.nodeType) {
         template = template.innerHTML
       } else {
-        warn('invalid template option:' + template, this)
+        if (process.env.NODE_ENV !== 'production') {
+          warn('invalid template option:' + template, this)
+        }
+        return this
       }
     } else if (el) {
       template = getOuterHTML(el)
@@ -41,7 +47,7 @@ Vue.prototype.$mount = function (el: string | Element): Component {
       options.staticRenderFns = staticRenderFns
     }
   }
-  return mount.call(this, el)
+  return mount.call(this, el, hydrating)
 }
 
 /**

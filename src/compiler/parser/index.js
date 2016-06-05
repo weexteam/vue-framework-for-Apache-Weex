@@ -64,6 +64,17 @@ export function parse (
       }
 
       tag = tag.toLowerCase()
+
+      // check namespace.
+      // inherit parent ns if there is one
+      const ns = (currentParent && currentParent.ns) || platformGetTagNamespace(tag)
+
+      // handle IE svg bug
+      /* istanbul ignore if */
+      if (options.isIE && ns === 'svg') {
+        attrs = guardIESVGBug(attrs)
+      }
+
       const element: ASTElement = {
         type: 1,
         tag,
@@ -71,6 +82,9 @@ export function parse (
         attrsMap: makeAttrsMap(attrs),
         parent: currentParent,
         children: []
+      }
+      if (ns) {
+        element.ns = ns
       }
 
       if (isForbiddenTag(element)) {
@@ -82,14 +96,6 @@ export function parse (
         )
       }
 
-      // check namespace.
-      // inherit parent ns if there is one
-      let ns
-      if ((ns = currentParent && currentParent.ns) ||
-          (ns = platformGetTagNamespace(tag))) {
-        element.ns = ns
-      }
-
       if (!inPre) {
         processPre(element)
         if (element.pre) {
@@ -99,6 +105,7 @@ export function parse (
       if (inPre) {
         processRawAttrs(element)
       } else {
+        processKey(element)
         processFor(element)
         processIf(element)
         processOnce(element)
@@ -219,6 +226,13 @@ function processRawAttrs (el) {
   }
 }
 
+function processKey (el) {
+  const exp = getBindingAttr(el, 'key')
+  if (exp) {
+    el.key = exp
+  }
+}
+
 function processFor (el) {
   let exp
   if ((exp = getAndRemoveAttr(el, 'v-for'))) {
@@ -237,9 +251,6 @@ function processFor (el) {
       el.alias = iteratorMatch[2].trim()
     } else {
       el.alias = alias
-    }
-    if ((exp = getAndRemoveAttr(el, 'track-by'))) {
-      el.key = exp
     }
   }
 }
@@ -302,9 +313,12 @@ function processSlot (el) {
 }
 
 function processComponent (el) {
-  const isBinding = getBindingAttr(el, 'is')
-  if (isBinding) {
-    el.component = isBinding
+  let binding
+  if ((binding = getBindingAttr(el, 'is'))) {
+    el.component = binding
+  }
+  if (getAndRemoveAttr(el, 'keep-alive') != null) {
+    el.keepAlive = true
   }
   if (getAndRemoveAttr(el, 'inline-template') != null) {
     el.inlineTemplate = true
@@ -394,4 +408,20 @@ function isForbiddenTag (el): boolean {
       el.attrsMap.type === 'text/javascript'
     ))
   )
+}
+
+const ieNSBug = /^xmlns:NS\d+/
+const ieNSPrefix = /^NS\d+:/
+
+/* istanbul ignore next */
+function guardIESVGBug (attrs) {
+  const res = []
+  for (let i = 0; i < attrs.length; i++) {
+    const attr = attrs[i]
+    if (!ieNSBug.test(attr.name)) {
+      attr.name = attr.name.replace(ieNSPrefix, '')
+      res.push(attr)
+    }
+  }
+  return res
 }

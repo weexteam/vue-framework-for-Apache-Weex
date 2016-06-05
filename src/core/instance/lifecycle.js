@@ -1,9 +1,9 @@
 /* @flow */
 
 import Watcher from '../observer/watcher'
-import { warn, validateProp, remove, noop } from '../util/index'
+import { emptyVNode } from '../vdom/vnode'
 import { observerState } from '../observer/index'
-import { updateListeners } from '../vdom/helpers'
+import { warn, validateProp, remove, noop } from '../util/index'
 
 export function initLifecycle (vm: Component) {
   const options = vm.$options
@@ -17,17 +17,23 @@ export function initLifecycle (vm: Component) {
   vm.$children = []
   vm.$refs = {}
 
+  vm._watcher = null
   vm._isMounted = false
   vm._isDestroyed = false
   vm._isBeingDestroyed = false
 }
 
 export function lifecycleMixin (Vue: Class<Component>) {
-  Vue.prototype._mount = function (): Component {
+  Vue.prototype._mount = function (
+    el?: Element | void,
+    hydrating?: boolean
+  ): Component {
     const vm: Component = this
+    vm.$el = el
     if (!vm.$options.render) {
-      vm.$options.render = () => vm.$createElement('div')
+      vm.$options.render = () => emptyVNode
       if (process.env.NODE_ENV !== 'production') {
+        /* istanbul ignore if */
         if (vm.$options.template) {
           warn(
             'You are using the runtime-only build of Vue where the template ' +
@@ -45,17 +51,19 @@ export function lifecycleMixin (Vue: Class<Component>) {
     }
     callHook(vm, 'beforeMount')
     vm._watcher = new Watcher(vm, () => {
-      vm._update(vm._render())
+      vm._update(vm._render(), hydrating)
     }, noop)
+    hydrating = false
     vm._isMounted = true
     // root instance, call mounted on self
+    // mounted is called for child components in its inserted hook
     if (vm.$root === vm) {
       callHook(vm, 'mounted')
     }
     return vm
   }
 
-  Vue.prototype._update = function (vnode: VNode) {
+  Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     const vm: Component = this
     if (vm._isMounted) {
       callHook(vm, 'beforeUpdate')
@@ -63,7 +71,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
     if (!vm._vnode) {
       // Vue.prototype.__patch__ is injected in entry points
       // based on the rendering backend used.
-      vm.$el = vm.__patch__(vm.$el, vnode)
+      vm.$el = vm.__patch__(vm.$el, vnode, hydrating)
     } else {
       vm.$el = vm.__patch__(vm._vnode, vnode)
     }
@@ -72,6 +80,11 @@ export function lifecycleMixin (Vue: Class<Component>) {
     const parentNode = vm.$options._parentVnode
     if (parentNode) {
       parentNode.elm = vm.$el
+      // update parent $el if the parent is HOC
+      // this is necessary because child is updated after parent
+      if (vm.$parent && parentNode === vm.$parent._vnode) {
+        vm.$parent.$el = vm.$el
+      }
     }
     if (vm._isMounted) {
       callHook(vm, 'updated')
@@ -90,31 +103,42 @@ export function lifecycleMixin (Vue: Class<Component>) {
     // update props
     if (propsData && vm.$options.props) {
       observerState.shouldConvert = false
+      if (process.env.NODE_ENV !== 'production') {
+        observerState.isSettingProps = true
+      }
       const propKeys = vm.$options._propKeys || []
       for (let i = 0; i < propKeys.length; i++) {
         const key = propKeys[i]
         vm[key] = validateProp(vm, key, propsData)
       }
       observerState.shouldConvert = true
+      if (process.env.NODE_ENV !== 'production') {
+        observerState.isSettingProps = false
+      }
     }
     // update listeners
     if (listeners) {
       const oldListeners = vm.$options._parentListeners
       vm.$options._parentListeners = listeners
-      updateListeners(listeners, oldListeners || {}, (event, handler) => {
-        vm.$on(event, handler)
-      })
+      vm._updateListeners(listeners, oldListeners)
     }
   }
 
   Vue.prototype.$forceUpdate = function () {
     const vm: Component = this
-    vm._watcher.update()
+    if (vm._watcher) {
+      vm._watcher.update()
+    }
+    if (vm._watchers.length) {
+      for (let i = 0; i < vm._watchers.length; i++) {
+        vm._watchers[i].update(true /* shallow */)
+      }
+    }
   }
 
   Vue.prototype.$destroy = function () {
     const vm: Component = this
-    if (vm._isDestroyed) {
+    if (vm._isBeingDestroyed) {
       return
     }
     callHook(vm, 'beforeDestroy')
@@ -125,6 +149,9 @@ export function lifecycleMixin (Vue: Class<Component>) {
       remove(parent.$children, vm)
     }
     // teardown watchers
+    if (vm._watcher) {
+      vm._watcher.teardown()
+    }
     let i = vm._watchers.length
     while (i--) {
       vm._watchers[i].teardown()
@@ -132,7 +159,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
     // remove reference from data ob
     // frozen object may not have observer.
     if (vm._data.__ob__) {
-      vm._data.__ob__.removeVm(vm)
+      vm._data.__ob__.vmCount--
     }
     // call the last hook...
     vm._isDestroyed = true

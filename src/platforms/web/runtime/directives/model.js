@@ -36,6 +36,7 @@ export default {
         el.addEventListener('compositionstart', onCompositionStart)
         el.addEventListener('compositionend', onCompositionEnd)
       }
+      /* istanbul ignore if */
       if (isIE9) {
         el.vmodel = true
       }
@@ -55,12 +56,6 @@ export default {
       if (needReset) {
         trigger(el, 'change')
       }
-    }
-  },
-  unbind (el, binding, vnode) {
-    if (vnode.tag !== 'select' && !isAndroid) {
-      el.removeEventListener('compositionstart', onCompositionStart)
-      el.removeEventListener('compositionend', onCompositionEnd)
     }
   }
 }

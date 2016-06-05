@@ -26,12 +26,14 @@ declare interface VNodeWithData {
   context: Component;
   key: string | number | void;
   parent?: VNodeWithData;
+  child?: Component;
 }
 
 declare interface VNodeData {
-  pre?: true;
   key?: string | number;
   slot?: string;
+  ref?: string;
+  tag?: string;
   staticClass?: string;
   class?: any;
   style?: Array<Object> | Object;

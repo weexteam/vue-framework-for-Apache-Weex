@@ -38,17 +38,9 @@ describe('codegen', () => {
     )
   })
 
-  it('generate v-pre', () => {
-    assertCodegen(
-      '<div v-pre><p>hello world</p></div>',
-      'with(this){return _m(0)}',
-      [`with(this){return _h(_e('div',{pre:true}),[_h(_e('p'),[_t("hello world")])])}`]
-    )
-  })
-
   it('generate v-for directive', () => {
     assertCodegen(
-      '<li v-for="item in items" track-by="item.uid"></li>',
+      '<li v-for="item in items" :key="item.uid"></li>',
       `with(this){return (items)&&_l((items),function(item,$index,$key){return _h(_e('li',{key:item.uid}))})}`
     )
   })
@@ -70,14 +62,14 @@ describe('codegen', () => {
   it('generate v-ref directive', () => {
     assertCodegen(
       '<p v-ref:component1></p>',
-      `with(this){return _h(_e('p',{hook:{"insert":function(n1,n2){_r("component1",n1.child||n1.elm,false,false)},"destroy":function(n1,n2){_r("component1",n1.child||n1.elm,false,true)}}}))}`
+      `with(this){return _h(_e('p',{ref:"component1"}))}`
     )
   })
 
   it('generate v-ref directive on v-for', () => {
     assertCodegen(
       '<ul><li v-for="item in items" v-ref:component1></li></ul>',
-      `with(this){return _h(_e('ul'),[(items)&&_l((items),function(item,$index,$key){return _h(_e('li',{hook:{"insert":function(n1,n2){_r("component1",n1.child||n1.elm,true,false)},"destroy":function(n1,n2){_r("component1",n1.child||n1.elm,true,true)}}}))})])}`
+      `with(this){return _h(_e('ul'),[(items)&&_l((items),function(item,$index,$key){return _h(_e('li',{ref:"component1",refInFor:true}))})])}`
     )
   })
 
@@ -99,6 +91,16 @@ describe('codegen', () => {
     assertCodegen(
       '<svg><text>hello world</text></svg>',
       `with(this){return _h(_e('svg',void 0,'svg'),[_h(_e('text',void 0,'svg'),[_t("hello world")])])}`
+    )
+  })
+
+  it('generate MathML tag', () => {
+    assertCodegen(
+      `<math>
+        <matrix>
+        </matrix>
+      </math>`,
+      `with(this){return _h(_e('math',void 0,'math'),[_h(_e('matrix',void 0,'math'))])}`
     )
   })
 
@@ -177,14 +179,14 @@ describe('codegen', () => {
   it('generate transition', () => {
     assertCodegen(
       '<p transition="expand">hello world</p>',
-      `with(this){return _h(_e('p',{transition:{definition:("expand"),appear:false}}),[_t("hello world")])}`
+      `with(this){return _h(_e('p',{transition:"expand"}),[_t("hello world")])}`
     )
   })
 
   it('generate dynamic transition with transition on appear', () => {
     assertCodegen(
-      '<p :transition="expand" transition-on-appear>hello world</p>',
-      `with(this){return _h(_e('p',{transition:{definition:(expand),appear:true}}),[_t("hello world")])}`
+      `<p :transition="{name:'expand',appear:true}">hello world</p>`,
+      `with(this){return _h(_e('p',{transition:{name:'expand',appear:true}}),[_t("hello world")])}`
     )
   })
 
@@ -300,11 +302,11 @@ describe('codegen', () => {
   it('generate is attribute', () => {
     assertCodegen(
       '<div is="component1"></div>',
-      `with(this){return _h(_e("component1",{}))}`
+      `with(this){return _h(_e("component1",{tag:"div"}))}`
     )
     assertCodegen(
       '<div :is="component1"></div>',
-      `with(this){return _h(_e(component1,{}))}`
+      `with(this){return _h(_e(component1,{tag:"div"}))}`
     )
   })
 

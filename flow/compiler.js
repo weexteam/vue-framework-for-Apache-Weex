@@ -1,5 +1,6 @@
 declare type CompilerOptions = {
   warn?: Function,
+  isIE?: boolean,
   expectHTML?: boolean,
   preserveWhitespace?: boolean,
   modules?: Array<ModuleOptions>,
@@ -14,8 +15,9 @@ declare type CompilerOptions = {
 
 declare type ModuleOptions = {
   staticKeys?: Array<string>,
-  parse: Function,
-  genData: Function
+  parse: (el: ASTElement) => void,
+  genData: (el: ASTElement) => string,
+  transformElement?: (el: ASTElement, code: string) => string
 }
 
 declare type ASTElementHandler = {
@@ -58,9 +60,14 @@ declare type ASTElement = {
   ns?: string,
 
   component?: string,
+  keepAlive?: boolean,
   inlineTemplate?: true,
+  transitionMode?: string | null,
   slotName?: ?string,
   slotTarget?: ?string,
+
+  ref?: string,
+  refInFor?: boolean,
 
   render?: true,
   renderMethod?: ?string,

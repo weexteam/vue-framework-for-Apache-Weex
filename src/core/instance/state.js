@@ -37,7 +37,22 @@ function initProps (vm: Component) {
     observerState.shouldConvert = isRoot
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]
-      defineReactive(vm, key, validateProp(vm, key, propsData))
+      /* istanbul ignore else */
+      if (process.env.NODE_ENV !== 'production') {
+        defineReactive(vm, key, validateProp(vm, key, propsData), () => {
+          if (vm.$parent && !observerState.isSettingProps) {
+            warn(
+              `Avoid mutating a prop directly since the value will be ` +
+              `overwritten whenever the parent component re-renders. ` +
+              `Instead, use a data or computed property based on the prop's ` +
+              `value. Prop being mutated: "${key}"`,
+              vm
+            )
+          }
+        })
+      } else {
+        defineReactive(vm, key, validateProp(vm, key, propsData))
+      }
     }
     observerState.shouldConvert = true
   }
@@ -57,12 +72,22 @@ function initData (vm: Component) {
   }
   // proxy data on instance
   const keys = Object.keys(data)
+  const props = vm.$options.props
   let i = keys.length
   while (i--) {
-    proxy(vm, keys[i])
+    if (props && hasOwn(props, keys[i])) {
+      process.env.NODE_ENV !== 'production' && warn(
+        `The data property "${keys[i]}" is already declared as a prop. ` +
+        `Use prop default value instead.`,
+        vm
+      )
+    } else {
+      proxy(vm, keys[i])
+    }
   }
   // observe data
-  observe(data, vm)
+  observe(data)
+  data.__ob__ && data.__ob__.vmCount++
 }
 
 const computedSharedDefinition = {
@@ -205,7 +230,8 @@ function setData (vm: Component, newData: Object) {
       proxy(vm, key)
     }
   }
-  oldData.__ob__.removeVm(vm)
-  observe(newData, vm)
+  oldData.__ob__ && oldData.__ob__.vmCount--
+  observe(newData)
+  newData.__ob__ && newData.__ob__.vmCount++
   vm.$forceUpdate()
 }

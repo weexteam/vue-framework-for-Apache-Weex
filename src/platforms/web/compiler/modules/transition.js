@@ -11,17 +11,29 @@ function parse (el: ASTElement) {
   }
   if (transition) {
     el.transition = transition
-    el.transitionOnAppear = getBindingAttr(el, 'transition-on-appear') != null
+  }
+  const mode = getBindingAttr(el, 'transition-mode')
+  if (mode) {
+    el.transitionMode = mode
   }
 }
 
 function genData (el: ASTElement): string {
   return el.transition
-    ? `transition:{definition:(${el.transition}),appear:${el.transitionOnAppear}},`
+    ? `transition:${el.transition},`
     : ''
+}
+
+function transformElement (el: ASTElement, code: string): string {
+  return el.transitionMode
+    ? `_h(_e('transition-control',{props:{mode:${
+        el.transitionMode
+      }}}),function(){return [${code}]})`
+    : code
 }
 
 export default {
   parse,
-  genData
+  genData,
+  transformElement
 }
