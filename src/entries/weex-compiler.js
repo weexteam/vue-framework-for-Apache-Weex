@@ -1,29 +1,27 @@
-/* @flow */
-
-import { extend, genStaticKeys } from 'shared/util'
-import { compile as baseCompile } from 'compiler/index'
-import modules from 'weex/compiler/modules/index'
-import directives from 'weex/compiler/directives/index'
-import { isReservedTag, isUnaryTag, mustUseProp, getTagNamespace } from 'weex/util/index'
-
-const baseOptions: CompilerOptions = {
-  expectHTML: false,
-  preserveWhitespace: false,
-  modules,
-  staticKeys: genStaticKeys(modules),
-  directives,
-  isReservedTag,
-  isUnaryTag,
-  mustUseProp,
-  getTagNamespace
-}
+import { extend } from 'shared/util'
+import { compile as baseCompile, baseOptions } from 'weex/compiler/index'
+import { detectErrors } from 'compiler/error-detector'
 
 export function compile (
   template: string,
   options?: CompilerOptions
-): { render: string, staticRenderFns: Array<string> } {
-  options = options
-    ? extend(extend({}, baseOptions), options)
-    : baseOptions
-  return baseCompile(template, options)
+): CompiledResult {
+  options = options || {}
+  const errors = []
+  // allow injecting modules/directives
+  const modules = options.modules
+    ? baseOptions.modules.concat(options.modules)
+    : baseOptions.modules
+  const directives = options.directives
+    ? extend(extend({}, baseOptions.directives), options.directives)
+    : baseOptions.directives
+  const compiled = baseCompile(template, {
+    modules,
+    directives,
+    warn: msg => {
+      errors.push(msg)
+    }
+  })
+  compiled.errors = errors.concat(detectErrors(compiled.ast))
+  return compiled
 }

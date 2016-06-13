@@ -1,6 +1,6 @@
 import { parse } from 'compiler/parser/index'
 import { extend } from 'shared/util'
-import { baseOptions } from 'entries/web-compiler'
+import { baseOptions } from 'web/compiler/index'
 
 describe('parser', () => {
   it('simple element', () => {
@@ -95,8 +95,8 @@ describe('parser', () => {
   it('v-pre directive', () => {
     const ast = parse('<div v-pre id="message1"><p>{{msg}}</p></div>', baseOptions)
     expect(ast.pre).toBe(true)
-    expect(ast.attrs[0].name).toBe('id')
-    expect(ast.attrs[0].value).toBe('"message1"')
+    expect(ast.staticAttrs[0].name).toBe('id')
+    expect(ast.staticAttrs[0].value).toBe('"message1"')
     expect(ast.children[0].children[0].text).toBe('{{msg}}')
   })
 
@@ -314,5 +314,23 @@ describe('parser', () => {
     delete options.mustUseProp
     const ast = parse('<input type="text" name="field1" :value="msg">', options)
     expect(ast.props).toBeUndefined()
+  })
+
+  it('pre/post transforms', () => {
+    const options = extend({}, baseOptions)
+    const spy1 = jasmine.createSpy('preTransform')
+    const spy2 = jasmine.createSpy('postTransform')
+    options.modules = options.modules.concat([{
+      preTransformNode (el) {
+        spy1(el.tag)
+      },
+      postTransformNode (el) {
+        expect(el.staticAttrs.length).toBe(1)
+        spy2(el.tag)
+      }
+    }])
+    parse('<img v-pre src="hi">', options)
+    expect(spy1).toHaveBeenCalledWith('img')
+    expect(spy2).toHaveBeenCalledWith('img')
   })
 })

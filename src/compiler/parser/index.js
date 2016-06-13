@@ -5,6 +5,7 @@ import { parseHTML } from './html-parser'
 import { parseText } from './text-parser'
 import { hyphenate, cached, no } from 'shared/util'
 import {
+  pluckModuleFunction,
   getAndRemoveAttr,
   addProp,
   addAttr,
@@ -15,7 +16,7 @@ import {
   baseWarn
 } from '../helpers'
 
-const dirRE = /^v-|^@|^:/
+export const dirRE = /^v-|^@|^:/
 const bindRE = /^:|^v-bind:/
 const onRE = /^@|^v-on:/
 const argRE = /:(.*)$/
@@ -30,7 +31,9 @@ const decodeHTMLCached = cached(decodeHTML)
 let warn
 let platformGetTagNamespace
 let platformMustUseProp
-let platformModules
+let preTransforms
+let transforms
+let postTransforms
 let delimiters
 
 /**
@@ -43,7 +46,9 @@ export function parse (
   warn = options.warn || baseWarn
   platformGetTagNamespace = options.getTagNamespace || no
   platformMustUseProp = options.mustUseProp || no
-  platformModules = options.modules || []
+  preTransforms = pluckModuleFunction(options.modules, 'preTransformNode')
+  transforms = pluckModuleFunction(options.modules, 'transformNode')
+  postTransforms = pluckModuleFunction(options.modules, 'postTransformNode')
   delimiters = options.delimiters
   const stack = []
   let root
@@ -96,6 +101,11 @@ export function parse (
         )
       }
 
+      // apply pre-transforms
+      for (let i = 0; i < preTransforms.length; i++) {
+        preTransforms[i](element, options)
+      }
+
       if (!inPre) {
         processPre(element)
         if (element.pre) {
@@ -115,8 +125,8 @@ export function parse (
         processRender(element)
         processSlot(element)
         processComponent(element)
-        for (let i = 0; i < platformModules.length; i++) {
-          platformModules[i].parse(element, options)
+        for (let i = 0; i < transforms.length; i++) {
+          transforms[i](element, options)
         }
         processAttrs(element)
       }
@@ -157,6 +167,10 @@ export function parse (
         currentParent = element
         stack.push(element)
       }
+      // apply post-transforms
+      for (let i = 0; i < postTransforms.length; i++) {
+        postTransforms[i](element, options)
+      }
     },
 
     end () {
@@ -188,15 +202,20 @@ export function parse (
       text = currentParent.tag === 'pre' || text.trim()
         ? decodeHTMLCached(text)
         // only preserve whitespace if its not right after a starting tag
-        : options.preserveWhitespace && currentParent.children.length
-          ? ' '
-          : ''
+        : options.preserveWhitespace && currentParent.children.length ? ' ' : ''
       if (text) {
         let expression
         if (!inPre && text !== ' ' && (expression = parseText(text, delimiters))) {
-          currentParent.children.push({ type: 2, expression })
+          currentParent.children.push({
+            type: 2,
+            expression,
+            text
+          })
         } else {
-          currentParent.children.push({ type: 3, text })
+          currentParent.children.push({
+            type: 3,
+            text
+          })
         }
       }
     }
@@ -213,7 +232,7 @@ function processPre (el) {
 function processRawAttrs (el) {
   const l = el.attrsList.length
   if (l) {
-    const attrs = el.attrs = new Array(l)
+    const attrs = el.staticAttrs = new Array(l)
     for (let i = 0; i < l; i++) {
       attrs[i] = {
         name: el.attrsList[i].name,

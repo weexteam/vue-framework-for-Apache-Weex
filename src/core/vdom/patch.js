@@ -78,6 +78,7 @@ export function createPatchFunction (backend) {
       // in that case we can just return the element and be done.
       if (isDef(i = vnode.child)) {
         invokeCreateHooks(vnode, insertedVnodeQueue)
+        setScope(vnode)
         return vnode.elm
       }
     }
@@ -87,6 +88,7 @@ export function createPatchFunction (backend) {
       elm = vnode.elm = vnode.ns
         ? nodeOps.createElementNS(vnode.ns, tag)
         : nodeOps.createElement(tag)
+      setScope(vnode)
       if (Array.isArray(children)) {
         for (i = 0; i < children.length; ++i) {
           nodeOps.appendChild(elm, createElm(children[i], insertedVnodeQueue))
@@ -114,6 +116,16 @@ export function createPatchFunction (backend) {
     }
   }
 
+  // set scope id attribute for scoped CSS.
+  // this is implemented as a special case to avoid the overhead
+  // of going through the normal attribute patching process.
+  function setScope (vnode) {
+    let i
+    if (isDef(i = vnode.context) && isDef(i = i.$options._scopeId)) {
+      nodeOps.setAttribute(vnode.elm, i, '')
+    }
+  }
+
   function addVnodes (parentElm, before, vnodes, startIdx, endIdx, insertedVnodeQueue) {
     for (; startIdx <= endIdx; ++startIdx) {
       nodeOps.insertBefore(parentElm, createElm(vnodes[startIdx], insertedVnodeQueue), before)
@@ -126,13 +138,13 @@ export function createPatchFunction (backend) {
     if (isDef(data)) {
       if (isDef(i = data.hook) && isDef(i = i.destroy)) i(vnode)
       for (i = 0; i < cbs.destroy.length; ++i) cbs.destroy[i](vnode)
-      if (isDef(i = vnode.children)) {
-        for (j = 0; j < vnode.children.length; ++j) {
-          invokeDestroyHook(vnode.children[j])
-        }
-      }
-      if (isDef(i = vnode.child)) {
-        invokeDestroyHook(i._vnode)
+    }
+    if (isDef(i = vnode.child)) {
+      invokeDestroyHook(i._vnode)
+    }
+    if (isDef(i = vnode.children)) {
+      for (j = 0; j < vnode.children.length; ++j) {
+        invokeDestroyHook(vnode.children[j])
       }
     }
   }
@@ -250,6 +262,7 @@ export function createPatchFunction (backend) {
   }
 
   function patchVnode (oldVnode, vnode, insertedVnodeQueue) {
+    if (oldVnode === vnode) return
     let i, hook
     if (isDef(i = vnode.data) && isDef(hook = i.hook) && isDef(i = hook.prepatch)) {
       i(oldVnode, vnode)
@@ -257,7 +270,6 @@ export function createPatchFunction (backend) {
     const elm = vnode.elm = oldVnode.elm
     const oldCh = oldVnode.children
     const ch = vnode.children
-    if (oldVnode === vnode) return
     if (isDef(vnode.data)) {
       for (i = 0; i < cbs.update.length; ++i) cbs.update[i](oldVnode, vnode)
       if (isDef(hook) && isDef(i = hook.update)) i(oldVnode, vnode)

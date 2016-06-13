@@ -9,7 +9,7 @@ const normalize = cached(function (prop) {
   return camelize(prop)
 })
 
-function parse (el, options) {
+function transformNode (el, options) {
   const staticStyle = getAndRemoveAttr(el, 'style')
   const { dynamic, styleResult } = parseStaticStyle(staticStyle, options)
   if (!dynamic && styleResult) {
@@ -63,6 +63,6 @@ function parseStaticStyle (staticStyle, options) {
 
 export default {
   staticKeys: ['staticStyle'],
-  parse,
+  transformNode,
   genData
 }

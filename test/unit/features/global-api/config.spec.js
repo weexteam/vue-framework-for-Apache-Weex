@@ -1,25 +1,6 @@
 import Vue from 'vue'
 
 describe('Global config', () => {
-  describe('preserveWhitespace', () => {
-    it('should preserve whitepspaces when set to true', () => {
-      // this option is set to false during unit tests.
-      Vue.config.preserveWhitespace = true
-      const vm = new Vue({
-        template: '<div><span>hi</span> <span>ha</span></div>'
-      }).$mount()
-      expect(vm.$el.innerHTML).toBe('<span>hi</span> <span>ha</span>')
-      Vue.config.preserveWhitespace = false
-    })
-
-    it('should remove whitespaces when set to false', () => {
-      const vm = new Vue({
-        template: '<div><span>hi</span> <span>ha</span></div>'
-      }).$mount()
-      expect(vm.$el.innerHTML).toBe('<span>hi</span><span>ha</span>')
-    })
-  })
-
   describe('silent', () => {
     it('should be false by default', () => {
       Vue.util.warn('foo')
@@ -44,6 +25,28 @@ describe('Global config', () => {
       }).$mount()
       expect(spy).toHaveBeenCalledWith(err, vm)
       Vue.config.errorHandler = null
+    })
+  })
+
+  describe('optionMergeStrategies', () => {
+    it('should allow defining custom option merging strategies', () => {
+      const spy = jasmine.createSpy('option merging')
+      Vue.config.optionMergeStrategies.__test__ = (parent, child, vm) => {
+        spy(parent, child, vm)
+        return child + 1
+      }
+      const Test = Vue.extend({
+        __test__: 1
+      })
+      expect(spy.calls.count()).toBe(1)
+      expect(spy).toHaveBeenCalledWith(undefined, 1, undefined)
+      expect(Test.options.__test__).toBe(2)
+      const test = new Test({
+        __test__: 2
+      })
+      expect(spy.calls.count()).toBe(2)
+      expect(spy).toHaveBeenCalledWith(2, 2, test)
+      expect(test.$options.__test__).toBe(3)
     })
   })
 })

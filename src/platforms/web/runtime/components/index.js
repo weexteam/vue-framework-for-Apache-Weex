@@ -1,5 +1,5 @@
-import transitionControl from './transition-control'
+import TransitionControl from './transition-control'
 
 export default {
-  transitionControl
+  TransitionControl
 }

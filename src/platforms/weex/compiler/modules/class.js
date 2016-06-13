@@ -5,7 +5,7 @@ import {
   baseWarn
 } from 'compiler/helpers'
 
-function parse (el, options) {
+function transformNode (el, options) {
   const warn = options.warn || baseWarn
   const staticClass = getAndRemoveAttr(el, 'class')
   const { dynamic, classResult } = parseStaticClass(staticClass, options)
@@ -63,6 +63,6 @@ function parseStaticClass (staticClass, options) {
 
 export default {
   staticKeys: ['staticClass'],
-  parse,
+  transformNode,
   genData
 }

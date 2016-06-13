@@ -1,23 +1,37 @@
 declare type CompilerOptions = {
-  warn?: Function,
-  isIE?: boolean,
-  expectHTML?: boolean,
-  preserveWhitespace?: boolean,
-  modules?: Array<ModuleOptions>,
-  staticKeys?: string,
-  directives?: { [key: string]: Function },
-  isUnaryTag?: (tag: string) => ?boolean,
-  isReservedTag?: (tag: string) => ?boolean,
-  mustUseProp?: (attr: string) => ?boolean,
-  getTagNamespace?: (tag: string) => ?string,
-  delimiters?: [string, string]
+  warn?: Function, // allow customizing warning in different environments, e.g. node
+  isIE?: boolean, // for detecting IE SVG innerHTML bug
+  expectHTML?: boolean, // only false for non-web builds
+  modules?: Array<ModuleOptions>, // platform specific modules, e.g. style, class
+  staticKeys?: string, // a list of AST properties to be considered static, for optimization
+  directives?: { [key: string]: Function }, // platform specific directives
+  isUnaryTag?: (tag: string) => ?boolean, // check if a tag is unary for the platform
+  isReservedTag?: (tag: string) => ?boolean, // check if a tag is a native for the platform
+  mustUseProp?: (attr: string) => ?boolean, // check if an attribute should be bound as a property
+  getTagNamespace?: (tag: string) => ?string, // check the namespace for a tag
+  transforms?: Array<Function>, // a list of transforms on parsed AST before codegen
+
+  // runtime user-configurable
+  delimiters?: [string, string] // template delimiters
+}
+
+declare type CompiledResult = {
+  ast: ?ASTElement,
+  render: string,
+  staticRenderFns: Array<string>,
+  errors?: Array<string>
+}
+
+declare type CompiledFunctionResult = {
+  render: Function,
+  staticRenderFns: Array<Function>
 }
 
 declare type ModuleOptions = {
-  staticKeys?: Array<string>,
-  parse: (el: ASTElement) => void,
-  genData: (el: ASTElement) => string,
-  transformElement?: (el: ASTElement, code: string) => string
+  transformNode: (el: ASTElement) => void, // transform an element's AST node
+  genData: (el: ASTElement) => string, // generate extra data string for an element
+  transformCode?: (el: ASTElement, code: string) => string, // further transform generated code for an element
+  staticKeys?: Array<string> // AST properties to be considered static
 }
 
 declare type ASTElementHandler = {
@@ -100,6 +114,7 @@ declare type ASTElement = {
 declare type ASTExpression = {
   type: 2,
   expression: string,
+  text: string,
   static?: boolean
 }
 
@@ -107,4 +122,38 @@ declare type ASTText = {
   type: 3,
   text: string,
   static?: boolean
+}
+
+// SFC-parser related declarations
+
+declare module 'de-indent' {
+  declare var exports: {
+    (str: string): string;
+  }
+}
+
+declare module 'source-map' {
+  declare class SourceMapGenerator {
+    setSourceContent(filename: string, content: string): void;
+    addMapping(mapping: Object): void;
+    toString(): string;
+  }
+}
+
+// an object format describing a single-file component.
+declare type SFCDescriptor = {
+  template: ?SFCBlock,
+  script: ?SFCBlock,
+  styles: Array<SFCBlock>
+}
+
+declare type SFCBlock = {
+  type: string,
+  content: string,
+  start?: number,
+  end?: number,
+  lang?: string,
+  src?: string,
+  scoped?: boolean,
+  map?: Object
 }

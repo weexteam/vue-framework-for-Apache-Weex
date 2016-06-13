@@ -4,7 +4,7 @@ import {
   getBindingAttr
 } from 'compiler/helpers'
 
-function parse (el: ASTElement) {
+function transformNode (el: ASTElement) {
   let transition = getBindingAttr(el, 'transition')
   if (transition === '""') {
     transition = true
@@ -24,16 +24,16 @@ function genData (el: ASTElement): string {
     : ''
 }
 
-function transformElement (el: ASTElement, code: string): string {
+function transformCode (el: ASTElement, code: string): string {
   return el.transitionMode
-    ? `_h(_e('transition-control',{props:{mode:${
+    ? `_h(_e('TransitionControl',{props:{mode:${
         el.transitionMode
-      }}}),function(){return [${code}]})`
+      },child:${code}}}))`
     : code
 }
 
 export default {
-  parse,
+  transformNode,
   genData,
-  transformElement
+  transformCode
 }

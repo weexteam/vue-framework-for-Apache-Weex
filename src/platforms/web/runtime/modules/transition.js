@@ -189,21 +189,28 @@ function resolveTransition (id: string | Object, context: Component): Object {
     if (id.name) {
       def = resolveAsset(context.$options, 'transitions', id.name)
     }
-    return def
+    def = def
       ? extend(ensureTransitionClasses(id.name, def), id)
       : ensureTransitionClasses(id.name, id)
+    // extra hooks to be merged
+    // added by <transition-control>
+    if (id.hooks) {
+      for (const key in id.hooks) {
+        mergeHook(def, key, id.hooks[key])
+      }
+    }
+    return def
   } else {
     return autoCssTransition('v')
   }
 }
 
 function ensureTransitionClasses (name: ?string, def: Object): Object {
-  if (def.css === false) return def
   name = name || 'v'
-  const key = `_cache_${name}`
-  if (def[key]) return def[key]
-  const res = def[key] = {}
-  extend(res, autoCssTransition(name))
+  const res = {}
+  if (def.css !== false) {
+    extend(res, autoCssTransition(name))
+  }
   extend(res, def)
   return res
 }
@@ -218,6 +225,18 @@ const autoCssTransition: (name: string) => Object = cached(name => {
     appearActiveClass: `${name}-enter-active`
   }
 })
+
+function mergeHook (def: Object, key: string, hook: Function) {
+  const oldHook = def[key]
+  if (oldHook) {
+    def[key] = function () {
+      oldHook.apply(this, arguments)
+      hook()
+    }
+  } else {
+    def[key] = hook
+  }
+}
 
 function addTransitionClass (el: any, cls: string) {
   (el._transitionClasses || (el._transitionClasses = [])).push(cls)

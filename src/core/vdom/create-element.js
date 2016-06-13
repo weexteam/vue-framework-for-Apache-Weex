@@ -36,7 +36,7 @@ export function renderElement (
 ): VNode | void {
   // make sure to expose real self instead of proxy
   const context: Component = this._self
-  const parent: Component | null = renderState.activeInstance
+  const parent: ?Component = renderState.activeInstance
   if (!parent) {
     process.env.NODE_ENV !== 'production' && warn(
       'createElement cannot be called outside of component ' +
@@ -46,7 +46,7 @@ export function renderElement (
   }
   if (!tag) {
     // in case of component :is set to falsy value
-    return emptyVNode
+    return emptyVNode()
   }
   if (typeof tag === 'string') {
     let Ctor
