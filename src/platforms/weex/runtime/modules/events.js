@@ -11,7 +11,7 @@ function updateDOMListeners (oldVnode, vnode) {
       console.log('Weex do not support event in bubble phase.')
       return
     }
-    vnode.elm.addEventListener(event, handler, vnode.context.$options.methodConfig)
+    vnode.elm.addEvent(event, handler.bind(vnode.context))
   })
 }
 

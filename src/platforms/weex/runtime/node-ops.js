@@ -1,20 +1,27 @@
-import { Node, TextNode } from './native'
+import renderer from './config'
 
 export const namespaceMap = {}
 
 export function createElement (tagName) {
-  return new Node(tagName)
+  return new renderer.Element(tagName)
 }
 
 export function createElementNS (namespace, tagName) {
-  return new Node(namespace + ':' + tagName)
+  return new renderer.Element(namespace + ':' + tagName)
 }
 
 export function createTextNode (text) {
-  return new TextNode(text)
+  return new renderer.TextNode(text)
 }
 
 export function insertBefore (node, target, before) {
+  if (target.nodeType === 3) {
+    if (node.type === 'text') {
+      node.setAttr('value', target.text)
+      target.parentNode = node
+    }
+    return
+  }
   node.insertBefore(target, before)
 }
 
@@ -23,6 +30,14 @@ export function removeChild (node, child) {
 }
 
 export function appendChild (node, child) {
+  if (child.nodeType === 3) {
+    if (node.type === 'text') {
+      node.setAttr('value', child.text)
+      child.parentNode = node
+    }
+    return
+  }
+
   node.appendChild(child)
 }
 
@@ -35,13 +50,13 @@ export function nextSibling (node) {
 }
 
 export function tagName (node) {
-  return node.tagName
+  return node.type
 }
 
 export function setTextContent (node, text) {
-  node.parentNode.setAttribute('value', text)
+  node.parentNode.setAttr('value', text)
 }
 
 export function childNodes (node) {
-  return node.children
+  return node.pureChildren
 }

@@ -11,12 +11,12 @@ function updateAttrs (oldVnode, vnode) {
     cur = attrs[key]
     old = oldAttrs[key]
     if (old !== cur) {
-      elm.setAttribute(key, cur)
+      elm.setAttr(key, cur)
     }
   }
   for (key in oldAttrs) {
     if (attrs[key] == null) {
-      elm.setAttribute(key)
+      elm.setAttr(key)
     }
   }
 }
@@ -27,7 +27,7 @@ export default {
     if (attrs) {
       for (let key in attrs) {
         if (!vnode.elm) debugger
-        vnode.elm.setAttribute(key, attrs[key])
+        vnode.elm.setAttr(key, attrs[key])
       }
     }
     updateAttrs(_, vnode)

@@ -1,11 +1,19 @@
 import Vue from './weex-runtime'
-import { Node } from 'weex/runtime/native'
+import renderer from 'weex/runtime/config'
 
 const globalState = {}
 const globalMethodConfig = {}
 const globalInstance = {}
+const globalDocument = {}
 const nativeModules = {}
 const nativeComponents = {}
+
+export function init (cfg) {
+  renderer.Document = cfg.Document
+  renderer.Element = cfg.Element
+  renderer.Comment = cfg.Comment
+  renderer.sendTasks = cfg.sendTasks
+}
 
 Vue.mixin({
   init () {
@@ -16,17 +24,20 @@ Vue.mixin({
     if (options.el) {
 
       // record instance info
+      const doc = globalState.currentDocument
       const instanceId = globalState.currentInstanceId
-      const config = globalState.currentInstanceConfig
+      const instanceConfig = globalState.currentInstanceConfig
       const externalData = globalState.currentInstanceData
       const methodConfig = globalState.currentInstanceMethodConfig
+      delete globalState.currentDocument
       delete globalState.currentInstanceId
       delete globalState.currentInstanceConfig
       delete globalState.currentInstanceData
       delete globalState.currentInstanceMethodConfig
       this.$instanceId = instanceId
+      this.$doc = doc
       options.instanceId = instanceId
-      options.globalConfig = config
+      options.globalConfig = instanceConfig
       options.methodConfig = methodConfig
 
       // set external data of instance
@@ -55,12 +66,15 @@ Vue.prototype.$getConfig = function () {
 }
 
 export function createInstance (
-  instanceId, appCode, config /* {bundleUrl, debug} */, data) {
+  instanceId, appCode, instanceConfig /* {bundleUrl, debug} */, data) {
+  const doc = new renderer.Document(instanceId, instanceConfig.bundleUrl)
   const methodConfig = { callbacks: [], events: {}, uid: 1 }
   globalMethodConfig[instanceId] = methodConfig
+  globalDocument[instanceId] = doc
 
+  globalState.currentDocument = doc
   globalState.currentInstanceId = instanceId
-  globalState.currentInstanceConfig = config
+  globalState.currentInstanceConfig = instanceConfig
   globalState.currentInstanceData = data
   globalState.currentInstanceMethodConfig = methodConfig
 
@@ -75,7 +89,7 @@ export function createInstance (
           const value = args[index]
           finalArgs[index] = normalize(value, methodConfig)
         })
-        global.callNative(instanceId + '', [{ module: name, method: methodName, args: finalArgs }])
+        renderer.sendTasks(instanceId + '', [{ module: name, method: methodName, args: finalArgs }])
       }
     }
     return output
@@ -87,14 +101,14 @@ export function createInstance (
     subVue[name] = Vue[name]
   })
   start(subVue, requireNativeModule)
-  const instance = globalInstance[instanceId]
-  global.callNative(instanceId + '', [{ module: 'dom', method: 'createFinish', args: [] }])
+  renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'createFinish', args: [] }])
 }
 
 export function destroyInstance (instanceId) {
   const instance = globalInstance[instanceId]
   delete globalInstance[instanceId]
   delete globalMethodConfig[instanceId]
+  delete globalDocument[instanceId]
   instance.$destroy()
 }
 
@@ -103,7 +117,7 @@ export function refreshInstance (instanceId, data) {
   for (const key in data) {
     Vue.set(instance, key, data[key])
   }
-  global.callNative(instanceId + '', [{ module: 'dom', method: 'refreshFinish', args: [] }])
+  renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'refreshFinish', args: [] }])
 }
 
 export function getRoot (instanceId) {
@@ -113,25 +127,19 @@ export function getRoot (instanceId) {
 
 export function callJS (instanceId, tasks) {
   const methodConfig = globalMethodConfig[instanceId] || {}
+  const doc = globalDocument[instanceId]
 
   tasks.forEach(task => {
     const args = task.args
 
     if (task.method === 'fireEvent') {
       const nodeId = args[0]
+      const el = doc.getRef(nodeId)
       const type = args[1]
-      const e = args[2] || {}
-      const info = methodConfig.events[nodeId]
-      const context = info.context
-      const handlers = info.handlers[type]
+      const e = args[2]
+      const domChanges = args[3]
 
-      e.type = type
-      e.target = info.el
-      e.timestamp = Date.now()
-
-      handlers.forEach(handle => {
-        handle.call(context, e)
-      })
+      doc.fireEvent(el, type, e, domChanges)
     }
 
     if (task.method === 'callback') {
@@ -201,7 +209,7 @@ function normalize (v, config) {
     case 'boolean':
     case 'array':
     case 'object':
-      if (v instanceof Node) {
+      if (v instanceof renderer.Element) {
         return v.ref
       }
       return v
