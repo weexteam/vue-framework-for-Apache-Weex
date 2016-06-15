@@ -9,5 +9,8 @@ function TextNode (text) {
 }
 
 export default {
-  TextNode
+  TextNode,
+  instances: {},
+  modules: {},
+  components: {}
 }
