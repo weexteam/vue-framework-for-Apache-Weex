@@ -17,12 +17,12 @@ import {
 } from '../helpers'
 
 export const dirRE = /^v-|^@|^:/
+export const forAliasRE = /(.*)\s+(?:in|of)\s+(.*)/
+export const forIteratorRE = /\(([^,]*),([^,]*)(?:,([^,]*))?\)/
 const bindRE = /^:|^v-bind:/
 const onRE = /^@|^v-on:/
 const argRE = /:(.*)$/
 const modifierRE = /\.[^\.]+/g
-const forAliasRE = /(.*)\s+(?:in|of)\s+(.*)/
-const forIteratorRE = /\((.*),(.*)\)/
 const camelRE = /[a-z\d][A-Z]/
 
 const decodeHTMLCached = cached(decodeHTML)
@@ -51,6 +51,7 @@ export function parse (
   postTransforms = pluckModuleFunction(options.modules, 'postTransformNode')
   delimiters = options.delimiters
   const stack = []
+  const preserveWhitespace = options.preserveWhitespace !== false
   let root
   let currentParent
   let inPre = false
@@ -202,7 +203,7 @@ export function parse (
       text = currentParent.tag === 'pre' || text.trim()
         ? decodeHTMLCached(text)
         // only preserve whitespace if its not right after a starting tag
-        : options.preserveWhitespace && currentParent.children.length ? ' ' : ''
+        : preserveWhitespace && currentParent.children.length ? ' ' : ''
       if (text) {
         let expression
         if (!inPre && text !== ' ' && (expression = parseText(text, delimiters))) {
@@ -266,8 +267,11 @@ function processFor (el) {
     const alias = inMatch[1].trim()
     const iteratorMatch = alias.match(forIteratorRE)
     if (iteratorMatch) {
-      el.iterator = iteratorMatch[1].trim()
-      el.alias = iteratorMatch[2].trim()
+      el.alias = iteratorMatch[1].trim()
+      el.iterator1 = iteratorMatch[2].trim()
+      if (iteratorMatch[3]) {
+        el.iterator2 = iteratorMatch[3].trim()
+      }
     } else {
       el.alias = alias
     }

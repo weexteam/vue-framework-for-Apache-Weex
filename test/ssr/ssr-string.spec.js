@@ -78,10 +78,34 @@ describe('SSR: renderToString', () => {
       template: '<div>{{ foo }} side {{ bar }}</div>',
       data: {
         foo: 'server',
-        bar: 'rendering'
+        bar: '<span>rendering</span>'
       }
     }, result => {
-      expect(result).toContain('<div server-rendered="true">server side rendering</div>')
+      expect(result).toContain('<div server-rendered="true">server side &lt;span&gt;rendering&lt;&sol;span&gt;</div>')
+      done()
+    })
+  })
+
+  it('v-html', done => {
+    renderVmWithOptions({
+      template: '<div v-html="text"></div>',
+      data: {
+        text: '<span>foo</span>'
+      }
+    }, result => {
+      expect(result).toContain('<div server-rendered="true"><span>foo</span></div>')
+      done()
+    })
+  })
+
+  it('v-text', done => {
+    renderVmWithOptions({
+      template: '<div v-text="text"></div>',
+      data: {
+        text: '<span>foo</span>'
+      }
+    }, result => {
+      expect(result).toContain('<div server-rendered="true">&lt;span&gt;foo&lt;&sol;span&gt;</div>')
       done()
     })
   })
@@ -386,6 +410,54 @@ describe('SSR: renderToString', () => {
     }), (err, result) => {
       expect(err).toBeNull()
       expect(result).toContain('<p server-rendered="true" class="my-class2 my-class1">hello world</p>')
+      done()
+    })
+  })
+
+  it('_scopeId', done => {
+    renderVmWithOptions({
+      _scopeId: '_v-parent',
+      template: '<div id="foo"><p><child></child></p></div>',
+      components: {
+        child: {
+          _scopeId: '_v-child',
+          render () {
+            const h = this.$createElement
+            return h('div', null, [h('span', null, ['foo'])])
+          }
+        }
+      }
+    }, result => {
+      expect(result).toContain(
+        '<div id="foo" server-rendered="true" _v-parent>' +
+          '<p _v-parent>' +
+            '<div _v-child _v-parent><span _v-child>foo</span></div>' +
+          '</p>' +
+        '</div>'
+      )
+      done()
+    })
+  })
+
+  it('_scopeId on slot content', done => {
+    renderVmWithOptions({
+      _scopeId: '_v-parent',
+      template: '<div><child><p>foo</p></child></div>',
+      components: {
+        child: {
+          _scopeId: '_v-child',
+          render () {
+            const h = this.$createElement
+            return h('div', null, this.$slots.default)
+          }
+        }
+      }
+    }, result => {
+      expect(result).toContain(
+        '<div server-rendered="true" _v-parent>' +
+          '<div _v-child _v-parent><p _v-child _v-parent>foo</p></div>' +
+        '</div>'
+      )
       done()
     })
   })

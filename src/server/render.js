@@ -1,6 +1,10 @@
 /* @flow */
 
+import { cached } from 'shared/util'
+import { encodeHTML } from 'entities'
 import { createComponentInstanceForVnode } from 'core/vdom/create-component'
+
+const encodeHTMLCached = cached(encodeHTML)
 
 export function createRenderFunction (
   modules: Array<Function>,
@@ -14,13 +18,14 @@ export function createRenderFunction (
     isRoot: boolean
   ) {
     if (node.componentOptions) {
-      const child = createComponentInstanceForVnode(node)
-      renderNode(child._render(), write, next, isRoot)
+      const child = createComponentInstanceForVnode(node)._render()
+      child.parent = node
+      renderNode(child, write, next, isRoot)
     } else {
       if (node.tag) {
         renderElement(node, write, next, isRoot)
       } else {
-        write(node.text, next)
+        write(node.raw ? node.text : encodeHTMLCached(node.text), next)
       }
     }
   }
@@ -86,6 +91,17 @@ export function createRenderFunction (
           markup += res
         }
       }
+    }
+    // attach scoped CSS ID
+    let scopeId
+    if (node.host && (scopeId = node.host.$options._scopeId)) {
+      markup += ` ${scopeId}`
+    }
+    while (node) {
+      if ((scopeId = node.context.$options._scopeId)) {
+        markup += ` ${scopeId}`
+      }
+      node = node.parent
     }
     return markup + '>'
   }
