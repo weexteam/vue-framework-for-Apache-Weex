@@ -102,6 +102,43 @@ describe('Directive v-on', () => {
     expect(callOrder.toString()).toBe('1,2')
   })
 
+  it('should support keyCode', () => {
+    vm = new Vue({
+      el,
+      template: `<input @keyup.enter="foo">`,
+      methods: { foo: spy }
+    })
+    triggerEvent(vm.$el, 'keyup', e => {
+      e.keyCode = 13
+    })
+    expect(spy).toHaveBeenCalled()
+  })
+
+  it('should support number keyCode', () => {
+    vm = new Vue({
+      el,
+      template: `<input @keyup.13="foo">`,
+      methods: { foo: spy }
+    })
+    triggerEvent(vm.$el, 'keyup', e => {
+      e.keyCode = 13
+    })
+    expect(spy).toHaveBeenCalled()
+  })
+
+  it('should support custom keyCode', () => {
+    Vue.config.keyCodes.test = 1
+    vm = new Vue({
+      el,
+      template: `<input @keyup.test="foo">`,
+      methods: { foo: spy }
+    })
+    triggerEvent(vm.$el, 'keyup', e => {
+      e.keyCode = 1
+    })
+    expect(spy).toHaveBeenCalled()
+  })
+
   it('should bind to a child component', () => {
     Vue.component('bar', {
       template: '<span>Hello</span>'
@@ -123,8 +160,7 @@ describe('Directive v-on', () => {
       data: {
         ok: true
       },
-      render () {
-        const h = this.$createElement
+      render (h) {
         return this.ok
           ? h('input', { on: { click: this.foo }})
           : h('input', { on: { input: this.bar }})
@@ -155,8 +191,7 @@ describe('Directive v-on', () => {
           template: '<div></div>'
         }
       },
-      render () {
-        const h = this.$createElement
+      render (h) {
         return this.ok
           ? h('test', { on: { foo: this.foo }})
           : h('test', { on: { bar: this.bar }})

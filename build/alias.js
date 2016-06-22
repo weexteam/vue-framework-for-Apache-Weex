@@ -8,5 +8,6 @@ module.exports = {
   web: path.resolve(__dirname, '../src/platforms/web'),
   weex: path.resolve(__dirname, '../src/platforms/weex'),
   server: path.resolve(__dirname, '../src/server'),
-  entries: path.resolve(__dirname, '../src/entries')
+  entries: path.resolve(__dirname, '../src/entries'),
+  sfc: path.resolve(__dirname, '../src/sfc')
 }

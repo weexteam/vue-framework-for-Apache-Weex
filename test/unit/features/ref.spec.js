@@ -1,6 +1,6 @@
 import Vue from 'vue'
 
-describe('Directive v-ref', () => {
+describe('ref', () => {
   const components = {
     test: {
       id: 'test'
@@ -10,26 +10,43 @@ describe('Directive v-ref', () => {
     }
   }
 
-  it('should accept hyphenated refs', () => {
+  it('should work', () => {
     const vm = new Vue({
+      data: {
+        value: 'bar'
+      },
       template: `<div>
-        <test v-ref:test></test>
-        <test2 v-ref:test-hyphen></test2>
+        <test ref="foo"></test>
+        <test2 :ref="value"></test2>
       </div>`,
       components
     })
     vm.$mount()
-    expect(vm.$refs.test).toBeTruthy()
-    expect(vm.$refs.test.$options.id).toBe('test')
-    expect(vm.$refs['test-hyphen']).toBeTruthy()
-    expect(vm.$refs['test-hyphen'].$options.id).toBe('test2')
+    expect(vm.$refs.foo).toBeTruthy()
+    expect(vm.$refs.foo.$options.id).toBe('test')
+    expect(vm.$refs.bar).toBeTruthy()
+    expect(vm.$refs.bar.$options.id).toBe('test2')
+  })
+
+  it('should dynamically update refs', done => {
+    const vm = new Vue({
+      data: {
+        value: 'foo'
+      },
+      template: '<div :ref="value"></div>'
+    }).$mount()
+    expect(vm.$refs.foo).toBe(vm.$el)
+    vm.value = 'bar'
+    waitForUpdate(() => {
+      expect(vm.$refs.foo).toBeUndefined()
+      expect(vm.$refs.bar).toBe(vm.$el)
+    }).then(done)
   })
 
   it('should work as a hyperscript prop', () => {
     const vm = new Vue({
       components,
-      render () {
-        const h = this.$createElement
+      render (h) {
         return h('div', null, [
           h('test', { ref: 'test' })
         ])
@@ -40,25 +57,9 @@ describe('Directive v-ref', () => {
     expect(vm.$refs.test.$options.id).toBe('test')
   })
 
-  it('should accept camelCase refs', () => {
-    const vm = new Vue({
-      template:
-        `<div>
-          <test v-ref:test></test>
-          <test2 v-ref:testCase></test2>
-        </div>`,
-      components
-    })
-    vm.$mount()
-    expect(vm.$refs.test).toBeTruthy()
-    expect(vm.$refs.test.$options.id).toBe('test')
-    expect(vm.$refs.testCase).toBeTruthy()
-    expect(vm.$refs.testCase.$options.id).toBe('test2')
-  })
-
   it('should accept HOC component', () => {
     const vm = new Vue({
-      template: '<test v-ref:test></test>',
+      template: '<test ref="test"></test>',
       components
     })
     vm.$mount()
@@ -69,7 +70,7 @@ describe('Directive v-ref', () => {
   it('should accept dynamic component', done => {
     const vm = new Vue({
       template: `<div>
-        <component :is="test" v-ref:test></component>
+        <component :is="test" ref="test"></component>
       </div>`,
       components,
       data: { test: 'test' }
@@ -92,7 +93,7 @@ describe('Directive v-ref', () => {
       },
       template: `
         <div>
-          <div v-for="n in items" v-ref:list>{{n}}</div>
+          <div v-for="n in items" ref="list">{{n}}</div>
         </div>
       `
     }).$mount()
@@ -118,7 +119,7 @@ describe('Directive v-ref', () => {
       },
       template: `
         <div>
-          <test v-for="n in items" v-ref:list :n="n"></test>
+          <test v-for="n in items" ref="list" :n="n"></test>
         </div>
       `,
       components: {

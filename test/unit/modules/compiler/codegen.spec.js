@@ -34,7 +34,7 @@ describe('codegen', () => {
   it('generate directive', () => {
     assertCodegen(
       '<p v-custom1:arg1.modifire="value1" v-custom2><p>',
-      `with(this){return _h(_e('p',{directives:[{name:"custom1",value:(value1),arg:"arg1",modifiers:{"modifire":true}},{name:"custom2",arg:"arg1"}]}))}`
+      `with(this){return _h(_e('p',{directives:[{name:"custom1",value:(value1),expression:"value1",arg:"arg1",modifiers:{"modifire":true}},{name:"custom2",arg:"arg1"}]}))}`
     )
   })
 
@@ -68,16 +68,16 @@ describe('codegen', () => {
     )
   })
 
-  it('generate v-ref directive', () => {
+  it('generate ref', () => {
     assertCodegen(
-      '<p v-ref:component1></p>',
+      '<p ref="component1"></p>',
       `with(this){return _h(_e('p',{ref:"component1"}))}`
     )
   })
 
-  it('generate v-ref directive on v-for', () => {
+  it('generate ref on v-for', () => {
     assertCodegen(
-      '<ul><li v-for="item in items" v-ref:component1></li></ul>',
+      '<ul><li v-for="item in items" ref="component1"></li></ul>',
       `with(this){return _h(_e('ul'),[(items)&&_l((items),function(item){return _h(_e('li',{ref:"component1",refInFor:true}))})])}`
     )
   })
@@ -110,28 +110,6 @@ describe('codegen', () => {
         </matrix>
       </math>`,
       `with(this){return _h(_e('math',void 0,'math'),[_h(_e('matrix',void 0,'math'))])}`
-    )
-  })
-
-  it('generate render tag', () => {
-    assertCodegen(
-      '<render :method="onRender" :args="params"></render>',
-      `with(this){return onRender(params)}`
-    )
-  })
-
-  it('generate render tag that have children', () => {
-    assertCodegen(
-      '<render :method="onRender"><p>hello</p></render>',
-      `with(this){return onRender([_m(0)])}`,
-      [`with(this){return _h(_e('p'),[_t("hello")])}`]
-    )
-  })
-
-  it('generate render tag with `method` is not dynamic binding', () => {
-    assertCodegen(
-      '<render method="onRender"></render>',
-      `with(this){return void 0}`
     )
   })
 
@@ -202,7 +180,7 @@ describe('codegen', () => {
   it('generate v-show directive', () => {
     assertCodegen(
       '<p v-show="shown">hello world</p>',
-      `with(this){return _h(_e('p',{directives:[{name:"show",value:(shown)}],show:true}),[_t("hello world")])}`
+      `with(this){return _h(_e('p',{directives:[{name:"show",value:(shown),expression:"shown"}],show:true}),[_t("hello world")])}`
     )
   })
 
@@ -244,6 +222,16 @@ describe('codegen', () => {
     assertCodegen(
       '<input @input.delete="onInput">',
       `with(this){return _h(_e('input',{on:{"input":function($event){if($event.keyCode!==8&&$event.keyCode!==46)return;onInput($event)}}}))}`
+    )
+    // number keycode
+    assertCodegen(
+      '<input @input.13="onInput">',
+      `with(this){return _h(_e('input',{on:{"input":function($event){if($event.keyCode!==13)return;onInput($event)}}}))}`
+    )
+    // custom keycode
+    assertCodegen(
+      '<input @input.custom="onInput">',
+      `with(this){return _h(_e('input',{on:{"input":function($event){if($event.keyCode!==_k("custom"))return;onInput($event)}}}))}`
     )
   })
 

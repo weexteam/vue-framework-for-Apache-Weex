@@ -10,9 +10,10 @@ import { warn, resolveAsset } from '../util/index'
 export function renderElementWithChildren (
   vnode: VNode | void,
   children: VNodeChildren | void
-): VNode | void {
+): VNode | Array<VNode> | void {
   if (vnode) {
-    if (vnode.componentOptions) {
+    const componentOptions = vnode.componentOptions
+    if (componentOptions) {
       if (process.env.NODE_ENV !== 'production' &&
         children && typeof children !== 'function') {
         warn(
@@ -21,8 +22,21 @@ export function renderElementWithChildren (
           'dependencies and optimizes re-rendering.'
         )
       }
-      vnode.componentOptions.children = children
+      const CtorOptions = componentOptions.Ctor.options
+      // functional component
+      if (CtorOptions.functional) {
+        return CtorOptions.render.call(
+          null,
+          componentOptions.parent.$createElement, // h
+          componentOptions.propsData || {},       // props
+          normalizeChildren(children)             // children
+        )
+      } else {
+        // normal component
+        componentOptions.children = children
+      }
     } else {
+      // normal element
       vnode.setChildren(normalizeChildren(children))
     }
   }
@@ -53,14 +67,19 @@ export function renderElement (
     let Ctor
     if (config.isReservedTag(tag)) {
       return new VNode(
-        tag, data, undefined,
-        undefined, undefined, namespace, context, host
+        tag, data,
+        undefined, undefined, undefined,
+        namespace, context, host
       )
     } else if ((Ctor = resolveAsset(context.$options, 'components', tag))) {
       return createComponent(Ctor, data, parent, context, host, tag)
     } else {
       if (process.env.NODE_ENV !== 'production') {
-        if (!namespace && config.isUnknownElement(tag)) {
+        if (
+          !namespace &&
+          !(config.ignoredElements && config.ignoredElements.indexOf(tag) > -1) &&
+          config.isUnknownElement(tag)
+        ) {
           warn(
             'Unknown custom element: <' + tag + '> - did you ' +
             'register the component correctly? For recursive components, ' +
@@ -69,8 +88,9 @@ export function renderElement (
         }
       }
       return new VNode(
-        tag, data, undefined,
-        undefined, undefined, namespace, context, host
+        tag, data,
+        undefined, undefined, undefined,
+        namespace, context, host
       )
     }
   } else {
