@@ -2,7 +2,7 @@
   "name": "weex-vue-framework",
   "version": "2.0.0-alpha.5",
   "description": "Reactive, component-oriented view layer for modern web interfaces.",
-  "main": "dist/vue.common.js",
+  "main": "dist/weex.common.js",
   "files": [
     "dist/vue.common.js",
     "dist/vue.js",
