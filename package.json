@@ -1,21 +1,22 @@
 {
   "name": "weex-vue-framework",
-  "version": "2.0.0-alpha.5",
-  "description": "Reactive, component-oriented view layer for modern web interfaces.",
+  "version": "0.1.0",
+  "description": "Vue 2.0 Framework for Weex",
   "main": "dist/weex.common.js",
   "files": [
-    "dist/vue.common.js",
-    "dist/vue.js",
-    "dist/vue.min.js",
+    "dist/weex.common.js",
+    "dist/weex.common.js.map",
+    "dist/weex.compiler.js",
     "src"
   ],
   "scripts": {
-    "dev": "webpack --watch --config build/webpack.dist.dev.config.js",
-    "dev:weex": "webpack --watch --config build/webpack.weex.dev.config.js",
+    "dev:vue": "webpack --watch --config build/webpack.dist.dev.config.js",
+    "dev": "webpack --watch --config build/webpack.weex.dev.config.js",
     "dev:test": "karma start build/karma.dev.config.js",
     "dev:ssr": "webpack --watch --config build/webpack.ssr.dev.config.js",
     "dev:compiler": "webpack --watch --config build/webpack.compiler.dev.config.js",
-    "build": "NODE_ENV=production node build/build.js",
+    "build": "NODE_ENV=production node build/build.js weex.common.js,weex.compiler.js",
+    "build:vue": "NODE_ENV=production node build/build.js",
     "build:ssr": "npm run build -- vue.common.js,vue-template-compiler,vue-server-renderer",
     "test": "npm run lint && flow check && npm run test:cover && npm run test:e2e -- --env phantomjs && npm run test:ssr",
     "test:unit": "NODE_ENV=development karma start build/karma.unit.config.js",
@@ -31,7 +32,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vuejs/vue.git"
+    "url": "https://github.com/weexteam/weex-vue-framework.git"
   },
   "keywords": [
     "vue"
@@ -39,9 +40,9 @@
   "author": "Evan You",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/vuejs/vue/issues"
+    "url": "https://github.com/weexteam/weex-vue-framework/issues"
   },
-  "homepage": "https://github.com/vuejs/vue#readme",
+  "homepage": "https://github.com/weexteam/weex-vue-framework",
   "devDependencies": {
     "babel-core": "^6.9.0",
     "babel-eslint": "^6.0.4",
