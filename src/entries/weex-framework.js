@@ -125,7 +125,7 @@ export function registerComponents (newComponents) {
 }
 
 Vue.mixin({
-  init () {
+  beforeCreate () {
     const options = this.$options
     const parentOptions = (options.parent && options.parent.$options) || {}
 
