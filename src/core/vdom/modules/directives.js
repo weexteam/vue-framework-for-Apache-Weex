@@ -10,12 +10,14 @@ export default {
     applyDirectives(oldVnode, vnode, 'update')
   },
   postpatch: function postupdateDirectives (oldVnode: VNodeWithData, vnode: VNodeWithData) {
-    applyDirectives(oldVnode, vnode, 'postupdate')
+    applyDirectives(oldVnode, vnode, 'componentUpdated')
   },
   destroy: function unbindDirectives (vnode: VNodeWithData) {
     applyDirectives(vnode, vnode, 'unbind')
   }
 }
+
+const emptyModifiers = Object.create(null)
 
 function applyDirectives (
   oldVnode: VNodeWithData,
@@ -31,12 +33,11 @@ function applyDirectives (
       const def = resolveAsset(vnode.context.$options, 'directives', dir.name, true)
       const fn = def && def[hook]
       if (fn) {
-        // only call update if value has changed
         if (isUpdate && oldDirs) {
-          const oldValue = dir.oldValue = oldDirs[i].value
-          if (oldValue === dir.value) {
-            continue
-          }
+          dir.oldValue = oldDirs[i].value
+        }
+        if (!dir.modifiers) {
+          dir.modifiers = emptyModifiers
         }
         fn(vnode.elm, dir, vnode, oldVnode)
       }

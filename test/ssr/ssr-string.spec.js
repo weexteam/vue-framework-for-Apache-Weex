@@ -1,6 +1,5 @@
 import Vue from '../../dist/vue.common.js'
-import { compileToFunctions } from '../../packages/vue-template-compiler'
-import createRenderer from '../../packages/vue-server-renderer'
+import { createRenderer } from '../../packages/vue-server-renderer'
 const { renderToString } = createRenderer()
 
 describe('SSR: renderToString', () => {
@@ -141,7 +140,7 @@ describe('SSR: renderToString', () => {
       data: {
         val: 'hi'
       },
-      init () {
+      beforeCreate () {
         expect(lifecycleCount++).toBe(1)
       },
       created () {
@@ -151,7 +150,7 @@ describe('SSR: renderToString', () => {
       },
       components: {
         test: {
-          init () {
+          beforeCreate () {
             expect(lifecycleCount++).toBe(3)
           },
           created () {
@@ -170,6 +169,29 @@ describe('SSR: renderToString', () => {
           '<span class="b">testAsync</span>' +
         '</div>'
       )
+      done()
+    })
+  })
+
+  it('computed properties', done => {
+    renderVmWithOptions({
+      template: '<div>{{ b }}</div>',
+      data: {
+        a: {
+          b: 1
+        }
+      },
+      computed: {
+        b () {
+          return this.a.b + 1
+        }
+      },
+      created () {
+        this.a.b = 2
+        expect(this.b).toBe(3)
+      }
+    }, result => {
+      expect(result).toContain('<div server-rendered="true">3</div>')
       done()
     })
   })
@@ -223,11 +245,13 @@ describe('SSR: renderToString', () => {
       `,
       components: {
         testAsync (resolve) {
-          const options = compileToFunctions(`
-            <span class="b">
-              <test-sub-async></test-sub-async>
-            </span>
-          `, { preserveWhitespace: false })
+          const options = {
+            template: `
+              <span class="b">
+                <test-sub-async></test-sub-async>
+              </span>
+            `
+          }
 
           options.components = {
             testSubAsync (resolve) {
@@ -475,9 +499,6 @@ describe('SSR: renderToString', () => {
 })
 
 function renderVmWithOptions (options, cb) {
-  const res = compileToFunctions(options.template)
-  Object.assign(options, res)
-  delete options.template
   renderToString(new Vue(options), (err, res) => {
     expect(err).toBeNull()
     cb(res)

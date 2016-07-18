@@ -46,9 +46,8 @@ describe('parser', () => {
 
   it('camelCase element', () => {
     const ast = parse('<MyComponent><p>hello world</p></MyComponent>', baseOptions)
-    expect(ast.tag).toBe('my-component')
+    expect(ast.tag).toBe('MyComponent')
     expect(ast.plain).toBe(true)
-    expect('Found camelCase tag in template').toHaveBeenWarned()
     expect(ast.children[0].tag).toBe('p')
     expect(ast.children[0].plain).toBe(true)
     expect(ast.children[0].children[0].text).toBe('hello world')
@@ -210,16 +209,6 @@ describe('parser', () => {
   it('style binding', () => {
     const ast = parse('<p :style="error">hello world</p>', baseOptions)
     expect(ast.styleBinding).toBe('error')
-  })
-
-  it('transition', () => {
-    const ast = parse('<p v-if="show" transition="expand">hello world</p>', baseOptions)
-    expect(ast.transition).toBe('"expand"')
-  })
-
-  it('transition with empty', () => {
-    const ast = parse('<p v-if="show" transition="">hello world</p>', baseOptions)
-    expect(ast.transition).toBe(true)
   })
 
   it('attribute with v-bind', () => {

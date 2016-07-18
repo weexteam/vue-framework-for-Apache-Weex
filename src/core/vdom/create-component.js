@@ -2,8 +2,9 @@
 
 import Vue from '../instance/index'
 import VNode from './vnode'
+import { normalizeChildren } from './helpers'
 import { callHook } from '../instance/lifecycle'
-import { warn, isObject, hasOwn, hyphenate } from '../util/index'
+import { warn, isObject, hasOwn, hyphenate, validateProp } from '../util/index'
 
 const hooks = { init, prepatch, insert, destroy }
 const hooksToMerge = Object.keys(hooks)
@@ -14,14 +15,27 @@ export function createComponent (
   parent: Component,
   context: Component,
   host: ?Component,
+  children?: VNodeChildren,
   tag?: string
 ): VNode | void {
+  // ensure children is a thunk
+  if (process.env.NODE_ENV !== 'production' &&
+    children && typeof children !== 'function') {
+    warn(
+      'A component\'s children should be a function that returns the ' +
+      'children array. This allows the component to track the children ' +
+      'dependencies and optimizes re-rendering.'
+    )
+  }
+
   if (!Ctor) {
     return
   }
+
   if (isObject(Ctor)) {
     Ctor = Vue.extend(Ctor)
   }
+
   if (typeof Ctor !== 'function') {
     if (process.env.NODE_ENV !== 'production') {
       warn(`Invalid Component definition: ${Ctor}`, parent)
@@ -50,14 +64,27 @@ export function createComponent (
 
   data = data || {}
 
-  // merge component management hooks onto the placeholder node
-  // only need to do this if this is not a functional component
-  if (!Ctor.options.functional) {
-    mergeHooks(data)
-  }
-
   // extract props
   const propsData = extractProps(data, Ctor)
+
+  // functional component
+  if (Ctor.options.functional) {
+    const props = {}
+    const propOptions = Ctor.options.props
+    if (propOptions) {
+      Object.keys(propOptions).forEach(key => {
+        props[key] = validateProp(key, propOptions, propsData)
+      })
+    }
+    return Ctor.options.render.call(
+      null,
+      parent.$createElement,
+      { props, parent, data, children: () => normalizeChildren(children) }
+    )
+  }
+
+  // merge component management hooks onto the placeholder node
+  mergeHooks(data)
 
   // extract listeners, since these needs to be treated as
   // child component listeners instead of DOM listeners
@@ -71,9 +98,7 @@ export function createComponent (
   const vnode = new VNode(
     `vue-component-${Ctor.cid}${name ? `-${name}` : ''}`,
     data, undefined, undefined, undefined, undefined, context, host,
-    { Ctor, propsData, listeners, parent, tag, children: undefined }
-    // children to be set later by renderElementWithChildren,
-    // but before the init hook
+    { Ctor, propsData, listeners, parent, tag, children }
   )
   return vnode
 }
@@ -127,6 +152,7 @@ function insert (vnode: MountedComponentVNode) {
     callHook(vnode.child, 'mounted')
   }
   if (vnode.data.keepAlive) {
+    vnode.child._inactive = false
     callHook(vnode.child, 'activated')
   }
 }
@@ -136,6 +162,7 @@ function destroy (vnode: MountedComponentVNode) {
     if (!vnode.data.keepAlive) {
       vnode.child.$destroy()
     } else {
+      vnode.child._inactive = true
       callHook(vnode.child, 'deactivated')
     }
   }
@@ -227,15 +254,14 @@ function checkProp (
 }
 
 function mergeHooks (data: VNodeData) {
-  if (data.hook) {
-    for (let i = 0; i < hooksToMerge.length; i++) {
-      const key = hooksToMerge[i]
-      const fromParent = data.hook[key]
-      const ours = hooks[key]
-      data.hook[key] = fromParent ? mergeHook(ours, fromParent) : ours
-    }
-  } else {
-    data.hook = hooks
+  if (!data.hook) {
+    data.hook = {}
+  }
+  for (let i = 0; i < hooksToMerge.length; i++) {
+    const key = hooksToMerge[i]
+    const fromParent = data.hook[key]
+    const ours = hooks[key]
+    data.hook[key] = fromParent ? mergeHook(ours, fromParent) : ours
   }
 }
 

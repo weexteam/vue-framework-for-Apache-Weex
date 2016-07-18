@@ -8,10 +8,12 @@ declare interface Component {
   static options: Object;
   // extend
   static extend: (options: Object) => Function;
+  static superOptions: Object;
+  static extendOptions: Object;
+  static super: Class<Component>;
   // assets
   static directive: (id: string, def?: Function | Object) => Function | Object | void;
   static component: (id: string, def?: Class<Component> | Object) => Class<Component>;
-  static transition: (id: string, def?: Object) => Object | void;
   static filter: (id: string, def?: Function) => Function | void;
 
   // public properties
@@ -23,6 +25,7 @@ declare interface Component {
   $children: Array<Component>;
   $refs: { [key: string]: Component | Element | Array<Component | Element> | void };
   $slots: { [key: string]: Array<VNode> };
+  $vnode: VNode;
   $isServer: boolean;
 
   // public methods
@@ -52,6 +55,7 @@ declare interface Component {
   _watchers: Array<Watcher>;
   _data: Object;
   _events: Object;
+  _inactive: boolean;
   _isMounted: boolean;
   _isDestroyed: boolean;
   _isBeingDestroyed: boolean;
@@ -84,16 +88,14 @@ declare interface Component {
     data?: Object,
     namespace?: string
   ) => VNode | void;
-  // renderText
-  _t: (
-    str?: string
-  ) => string;
   // renderStaticTree
   _m: (
     index?: number
   ) => Object | void;
   // toString
   _s: (value: any) => string;
+  // toNumber
+  _n: (value: string) => number | string;
   // resolveFilter
   _f: (id: string) => Function;
   // renderList

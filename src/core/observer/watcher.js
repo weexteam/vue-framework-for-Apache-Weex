@@ -66,7 +66,7 @@ export default class Watcher {
       if (!this.getter) {
         this.getter = function () {}
         process.env.NODE_ENV !== 'production' && warn(
-          'Failed watching path: ' + expOrFn +
+          `Failed watching path: "${expOrFn}" ` +
           'Watcher only accepts simple dot-delimited paths. ' +
           'For full control, use a function instead.',
           vm
@@ -83,33 +83,7 @@ export default class Watcher {
    */
   get () {
     pushTarget(this)
-    let value: any
-    try {
-      value = this.getter.call(this.vm, this.vm)
-    } catch (e) {
-      if (process.env.NODE_ENV !== 'production') {
-        if (this.user) {
-          warn(
-            'Error when evaluating watcher with getter: ' + this.expression,
-            this.vm
-          )
-        } else {
-          warn(
-            'Error during component render',
-            this.vm
-          )
-        }
-        /* istanbul ignore else */
-        if (config.errorHandler) {
-          config.errorHandler.call(null, e, this.vm)
-        } else {
-          throw e
-        }
-      }
-      // return old value when evaluation fails so the current UI is preserved
-      // if the error was somehow handled by user
-      value = this.value
-    }
+    const value = this.getter.call(this.vm, this.vm)
     // "touch" every property so they are all tracked as
     // dependencies for deep watching
     if (this.deep) {
@@ -188,7 +162,24 @@ export default class Watcher {
         // set new value
         const oldValue = this.value
         this.value = value
-        this.cb.call(this.vm, value, oldValue)
+        if (this.user) {
+          try {
+            this.cb.call(this.vm, value, oldValue)
+          } catch (e) {
+            process.env.NODE_ENV !== 'production' && warn(
+              `Error in watcher "${this.expression}"`,
+              this.vm
+            )
+            /* istanbul ignore else */
+            if (config.errorHandler) {
+              config.errorHandler.call(null, e, this.vm)
+            } else {
+              throw e
+            }
+          }
+        } else {
+          this.cb.call(this.vm, value, oldValue)
+        }
       }
     }
   }
@@ -247,7 +238,7 @@ function traverse (val: any, seen?: Set) {
   }
   const isA = Array.isArray(val)
   const isO = isObject(val)
-  if (isA || isO) {
+  if ((isA || isO) && Object.isExtensible(val)) {
     if (val.__ob__) {
       const depId = val.__ob__.dep.id
       if (seen.has(depId)) {

@@ -1,6 +1,6 @@
 /* @flow */
 
-import { no } from 'shared/util'
+import { no, noop } from 'shared/util'
 
 export type Config = {
   // user
@@ -13,13 +13,13 @@ export type Config = {
   // platform
   isReservedTag: (x?: string) => boolean,
   isUnknownElement: (x?: string) => boolean,
+  getTagNamespace: (x?: string) => string | void,
   mustUseProp: (x?: string) => boolean,
   // internal
   _assetTypes: Array<string>,
   _lifecycleHooks: Array<string>,
   _maxUpdateCount: number,
-  _isServer: boolean,
-  _ctors: Array<Function>
+  _isServer: boolean
 }
 
 const config: Config = {
@@ -66,6 +66,11 @@ const config: Config = {
   isUnknownElement: no,
 
   /**
+   * Get the namespace of an element
+   */
+  getTagNamespace: noop,
+
+  /**
    * Check if an attribute must be bound using property, e.g. value
    * Platform-dependent.
    */
@@ -77,7 +82,6 @@ const config: Config = {
   _assetTypes: [
     'component',
     'directive',
-    'transition',
     'filter'
   ],
 
@@ -85,7 +89,7 @@ const config: Config = {
    * List of lifecycle hooks.
    */
   _lifecycleHooks: [
-    'init',
+    'beforeCreate',
     'created',
     'beforeMount',
     'mounted',
@@ -105,14 +109,7 @@ const config: Config = {
   /**
    * Server rendering?
    */
-  _isServer: process.env.VUE_ENV === 'server',
-
-  /**
-   * Keeping track of all extended Component constructors
-   * so that we can update them in the case of global mixins being applied
-   * after their creation.
-   */
-  _ctors: []
+  _isServer: process.env.VUE_ENV === 'server'
 }
 
 export default config

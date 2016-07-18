@@ -1,4 +1,5 @@
 import { callHook } from 'core/instance/lifecycle'
+import { getRealChild } from 'core/vdom/helpers'
 
 export default {
   name: 'keep-alive',
@@ -12,14 +13,19 @@ export default {
   render () {
     const rawChild = this.child
     const realChild = getRealChild(this.child)
-    const cid = realChild.componentOptions.Ctor.cid
-    if (this.cache[cid]) {
-      const child = realChild.child = this.cache[cid].child
-      realChild.elm = this.$el = child.$el
-    } else {
-      this.cache[cid] = realChild
+    if (realChild && realChild.componentOptions) {
+      const opts = realChild.componentOptions
+      // same constructor may get registered as different local components
+      // so cid alone is not enough (#3269)
+      const key = opts.Ctor.cid + '::' + opts.tag
+      if (this.cache[key]) {
+        const child = realChild.child = this.cache[key].child
+        realChild.elm = this.$el = child.$el
+      } else {
+        this.cache[key] = realChild
+      }
+      realChild.data.keepAlive = true
     }
-    realChild.data.keepAlive = true
     return rawChild
   },
   destroyed () {
@@ -28,16 +34,5 @@ export default {
       callHook(vnode.child, 'deactivated')
       vnode.child.$destroy()
     }
-  }
-}
-
-// in case the child is also an abstract component, e.g. <transition-control>
-// we want to recrusively retrieve the real component to be rendered
-function getRealChild (vnode) {
-  const compOptions = vnode && vnode.componentOptions
-  if (compOptions && compOptions.Ctor.options._abstract) {
-    return getRealChild(compOptions.propsData.child)
-  } else {
-    return vnode
   }
 }

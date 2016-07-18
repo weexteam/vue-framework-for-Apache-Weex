@@ -3,33 +3,86 @@
 import { isPrimitive } from '../util/index'
 import VNode from './vnode'
 
-export function normalizeChildren (children: any): Array<VNode> {
+export function normalizeChildren (
+  children: any,
+  ns: string | void
+): Array<VNode> | void {
   // invoke children thunks.
   // components always receive their children as thunks so that they
   // can perform the actual render inside their own dependency collection cycle.
   if (typeof children === 'function') {
     children = children()
   }
-  if (typeof children === 'string') {
-    return [new VNode(undefined, undefined, undefined, children)]
+  if (isPrimitive(children)) {
+    return [createTextVNode(children)]
   }
   if (Array.isArray(children)) {
     const res = []
     for (let i = 0, l = children.length; i < l; i++) {
       const c = children[i]
+      const last = res[res.length - 1]
       //  nested
       if (Array.isArray(c)) {
-        res.push.apply(res, normalizeChildren(c))
+        res.push.apply(res, normalizeChildren(c, ns))
       } else if (isPrimitive(c)) {
-        // convert primitive to vnode
-        res.push(new VNode(undefined, undefined, undefined, c))
+        if (last && last.text) {
+          last.text += String(c)
+        } else {
+          // convert primitive to vnode
+          res.push(createTextVNode(c))
+        }
       } else if (c instanceof VNode) {
-        res.push(c)
+        if (c.text && last && last.text) {
+          last.text += c.text
+        } else {
+          // inherit parent namespace
+          if (ns) {
+            applyNS(c, ns)
+          }
+          res.push(c)
+        }
       }
     }
     return res
   }
-  return []
+}
+
+function createTextVNode (val) {
+  return new VNode(undefined, undefined, undefined, String(val))
+}
+
+function applyNS (vnode, ns) {
+  if (vnode.tag && !vnode.ns) {
+    vnode.ns = ns
+    if (vnode.children) {
+      for (let i = 0, l = vnode.children.length; i < l; i++) {
+        applyNS(vnode.children[i], ns)
+      }
+    }
+  }
+}
+
+// in case the child is also an abstract component, e.g. <transition-control>
+// we want to recrusively retrieve the real component to be rendered
+export function getRealChild (vnode: ?VNode): ?VNode {
+  const compOptions = vnode && vnode.componentOptions
+  if (compOptions && compOptions.Ctor.options._abstract) {
+    return getRealChild(compOptions.propsData && compOptions.propsData.child)
+  } else {
+    return vnode
+  }
+}
+
+export function mergeVNodeHook (def: Object, key: string, hook: Function) {
+  const oldHook = def[key]
+  if (oldHook) {
+    def[key] = function () {
+      oldHook.apply(this, arguments)
+      hook.apply(this, arguments)
+    }
+  } else {
+    def[key] = hook
+  }
 }
 
 export function updateListeners (

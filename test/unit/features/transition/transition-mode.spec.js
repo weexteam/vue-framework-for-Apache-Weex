@@ -1,7 +1,7 @@
 import Vue from 'vue'
 import injectStyles from './inject-styles'
 import { isIE9 } from 'web/util/index'
-import { nextFrame } from 'web/runtime/modules/transition'
+import { nextFrame } from 'web/runtime/transition-util'
 
 if (!isIE9) {
   describe('Transition mode', () => {
@@ -20,11 +20,10 @@ if (!isIE9) {
     it('dynamic components, simultaneous', done => {
       const vm = new Vue({
         template: `<div>
-          <component
-            :is="view"
-            class="test"
-            transition>
-          </component>
+          <transition>
+            <component :is="view" class="test">
+            </component>
+          </transition>
         </div>`,
         data: { view: 'one' },
         components
@@ -33,13 +32,13 @@ if (!isIE9) {
       vm.view = 'two'
       waitForUpdate(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test v-enter">two</div>' +
-          '<div class="test v-leave">one</div>'
+          '<div class="test v-leave v-leave-active">one</div>' +
+          '<div class="test v-enter v-enter-active">two</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test v-enter-active">two</div>' +
-          '<div class="test v-leave-active">one</div>'
+          '<div class="test v-leave-active">one</div>' +
+          '<div class="test v-enter-active">two</div>'
         )
       }).thenWaitFor(duration + 10).then(() => {
         expect(vm.$el.innerHTML).toBe(
@@ -52,20 +51,16 @@ if (!isIE9) {
       let next
       const vm = new Vue({
         template: `<div>
-          <component
-            :is="view"
-            class="test"
-            transition="test"
-            transition-mode="out-in">
-          </component>
+          <transition name="test" mode="out-in" @after-leave="afterLeave">
+            <component :is="view" class="test">
+            </component>
+          </transition>
         </div>`,
         data: { view: 'one' },
         components,
-        transitions: {
-          test: {
-            afterLeave () {
-              next()
-            }
+        methods: {
+          afterLeave () {
+            next()
           }
         }
       }).$mount(el)
@@ -73,7 +68,7 @@ if (!isIE9) {
       vm.view = 'two'
       waitForUpdate(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test test-leave">one</div>'
+          '<div class="test test-leave test-leave-active">one</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
@@ -83,7 +78,7 @@ if (!isIE9) {
         expect(vm.$el.innerHTML).toBe('')
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test test-enter">two</div>'
+          '<div class="test test-enter test-enter-active">two</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
@@ -100,20 +95,16 @@ if (!isIE9) {
       let next
       const vm = new Vue({
         template: `<div>
-          <component
-            :is="view"
-            class="test"
-            transition="test"
-            transition-mode="in-out">
-          </component>
+          <transition name="test" mode="in-out" @after-enter="afterEnter">
+            <component :is="view" class="test">
+            </component>
+          </transition>
         </div>`,
         data: { view: 'one' },
         components,
-        transitions: {
-          test: {
-            afterEnter () {
-              next()
-            }
+        methods: {
+          afterEnter () {
+            next()
           }
         }
       }).$mount(el)
@@ -122,7 +113,7 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.innerHTML).toBe(
           '<div class="test">one</div>' +
-          '<div class="test test-enter">two</div>'
+          '<div class="test test-enter test-enter-active">two</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
@@ -136,7 +127,7 @@ if (!isIE9) {
         )
       }).then(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test test-leave">one</div>' +
+          '<div class="test test-leave test-leave-active">one</div>' +
           '<div class="test">two</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
@@ -151,13 +142,78 @@ if (!isIE9) {
       }).then(done)
     })
 
+    it('dynamic components, in-out with early cancel', done => {
+      let next
+      const vm = new Vue({
+        template: `<div>
+          <transition name="test" mode="in-out" @after-enter="afterEnter">
+            <component :is="view" class="test"></component>
+          </transition>
+        </div>`,
+        data: { view: 'one' },
+        components,
+        methods: {
+          afterEnter () {
+            next()
+          }
+        }
+      }).$mount(el)
+      expect(vm.$el.textContent).toBe('one')
+      vm.view = 'two'
+      waitForUpdate(() => {
+        expect(vm.$el.innerHTML).toBe(
+          '<div class="test">one</div>' +
+          '<div class="test test-enter test-enter-active">two</div>'
+        )
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.innerHTML).toBe(
+          '<div class="test">one</div>' +
+          '<div class="test test-enter-active">two</div>'
+        )
+        // switch again before enter finishes,
+        // this cancels both enter and leave.
+        vm.view = 'one'
+      }).then(() => {
+        // 1. the pending leaving "one" should be removed instantly.
+        // 2. the entering "two" should be placed into its final state instantly.
+        // 3. a new "one" is created and entering
+        expect(vm.$el.innerHTML).toBe(
+          '<div class="test">two</div>' +
+          '<div class="test test-enter test-enter-active">one</div>'
+        )
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.innerHTML).toBe(
+          '<div class="test">two</div>' +
+          '<div class="test test-enter-active">one</div>'
+        )
+      }).thenWaitFor(_next => { next = _next }).then(() => {
+        expect(vm.$el.innerHTML).toBe(
+          '<div class="test">two</div>' +
+          '<div class="test">one</div>'
+        )
+      }).then(() => {
+        expect(vm.$el.innerHTML).toBe(
+          '<div class="test test-leave test-leave-active">two</div>' +
+          '<div class="test">one</div>'
+        )
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.innerHTML).toBe(
+          '<div class="test test-leave-active">two</div>' +
+          '<div class="test">one</div>'
+        )
+      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.innerHTML).toBe(
+          '<div class="test">one</div>'
+        )
+      }).then(done).then(done)
+    })
+
     it('normal elements with different keys, simultaneous', done => {
       const vm = new Vue({
         template: `<div>
-          <div
-            :key="view"
-            class="test"
-            transition>{{view}}</div>
+          <transition>
+            <div :key="view" class="test">{{view}}</div>
+          </transition>
         </div>`,
         data: { view: 'one' },
         components
@@ -166,13 +222,13 @@ if (!isIE9) {
       vm.view = 'two'
       waitForUpdate(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test v-enter">two</div>' +
-          '<div class="test v-leave">one</div>'
+          '<div class="test v-leave v-leave-active">one</div>' +
+          '<div class="test v-enter v-enter-active">two</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test v-enter-active">two</div>' +
-          '<div class="test v-leave-active">one</div>'
+          '<div class="test v-leave-active">one</div>' +
+          '<div class="test v-enter-active">two</div>'
         )
       }).thenWaitFor(duration + 10).then(() => {
         expect(vm.$el.innerHTML).toBe(
@@ -185,19 +241,15 @@ if (!isIE9) {
       let next
       const vm = new Vue({
         template: `<div>
-          <div
-            :key="view"
-            class="test"
-            transition="test"
-            transition-mode="out-in">{{view}}</div>
+          <transition name="test" mode="out-in" @after-leave="afterLeave">
+            <div :key="view" class="test">{{view}}</div>
+          </transition>
         </div>`,
         data: { view: 'one' },
         components,
-        transitions: {
-          test: {
-            afterLeave () {
-              next()
-            }
+        methods: {
+          afterLeave () {
+            next()
           }
         }
       }).$mount(el)
@@ -205,7 +257,7 @@ if (!isIE9) {
       vm.view = 'two'
       waitForUpdate(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test test-leave">one</div>'
+          '<div class="test test-leave test-leave-active">one</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
@@ -215,7 +267,7 @@ if (!isIE9) {
         expect(vm.$el.innerHTML).toBe('')
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test test-enter">two</div>'
+          '<div class="test test-enter test-enter-active">two</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
@@ -232,19 +284,15 @@ if (!isIE9) {
       let next
       const vm = new Vue({
         template: `<div>
-          <div
-            :key="view"
-            class="test"
-            transition="test"
-            transition-mode="in-out">{{view}}</component>
+          <transition name="test" mode="in-out" @after-enter="afterEnter">
+            <div :key="view" class="test">{{view}}</div>
+          </transition>
         </div>`,
         data: { view: 'one' },
         components,
-        transitions: {
-          test: {
-            afterEnter () {
-              next()
-            }
+        methods: {
+          afterEnter () {
+            next()
           }
         }
       }).$mount(el)
@@ -253,7 +301,7 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.innerHTML).toBe(
           '<div class="test">one</div>' +
-          '<div class="test test-enter">two</div>'
+          '<div class="test test-enter test-enter-active">two</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
         expect(vm.$el.innerHTML).toBe(
@@ -267,7 +315,7 @@ if (!isIE9) {
         )
       }).then(() => {
         expect(vm.$el.innerHTML).toBe(
-          '<div class="test test-leave">one</div>' +
+          '<div class="test test-leave test-leave-active">one</div>' +
           '<div class="test">two</div>'
         )
       }).thenWaitFor(nextFrame).then(() => {
@@ -280,6 +328,20 @@ if (!isIE9) {
           '<div class="test">two</div>'
         )
       }).then(done)
+    })
+
+    it('warn invaid mode', () => {
+      new Vue({
+        template: '<transition mode="foo"><div>123</div></transition>'
+      }).$mount()
+      expect('invalid <transition> mode: foo').toHaveBeenWarned()
+    })
+
+    it('warn usage on non element/component', () => {
+      new Vue({
+        template: '<transition mode="foo">foo</transition>'
+      }).$mount()
+      expect('<transition> can only be used on elements or components, not text nodes.').toHaveBeenWarned()
     })
   })
 }

@@ -8,16 +8,23 @@ import { warn, validateProp, remove, noop } from '../util/index'
 export function initLifecycle (vm: Component) {
   const options = vm.$options
 
-  vm.$parent = options.parent
-  vm.$root = vm.$parent ? vm.$parent.$root : vm
-  if (vm.$parent && !options._abstract) {
-    vm.$parent.$children.push(vm)
+  // locate first non-abstract parent
+  let parent = options.parent
+  if (parent && !options._abstract) {
+    while (parent.$options._abstract && parent.$parent) {
+      parent = parent.$parent
+    }
+    parent.$children.push(vm)
   }
+
+  vm.$parent = parent
+  vm.$root = parent ? parent.$root : vm
 
   vm.$children = []
   vm.$refs = {}
 
   vm._watcher = null
+  vm._inactive = false
   vm._isMounted = false
   vm._isDestroyed = false
   vm._isBeingDestroyed = false
@@ -84,15 +91,9 @@ export function lifecycleMixin (Vue: Class<Component>) {
     if (vm.$el) {
       vm.$el.__vue__ = vm
     }
-    // update parent vnode element after patch
-    const parentNode = vm.$options._parentVnode
-    if (parentNode) {
-      parentNode.elm = vm.$el
-      // update parent $el if the parent is HOC
-      // this is necessary because child is updated after parent
-      if (vm.$parent && parentNode === vm.$parent._vnode) {
-        vm.$parent.$el = vm.$el
-      }
+    // if parent is an HOC, update its $el as well
+    if (vm.$vnode && vm.$parent && vm.$vnode === vm.$parent._vnode) {
+      vm.$parent.$el = vm.$el
     }
     if (vm._isMounted) {
       callHook(vm, 'updated')
@@ -117,7 +118,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
       const propKeys = vm.$options._propKeys || []
       for (let i = 0; i < propKeys.length; i++) {
         const key = propKeys[i]
-        vm[key] = validateProp(vm, key, propsData)
+        vm[key] = validateProp(key, vm.$options.props, propsData, vm)
       }
       observerState.shouldConvert = true
       if (process.env.NODE_ENV !== 'production') {
@@ -175,7 +176,9 @@ export function lifecycleMixin (Vue: Class<Component>) {
     // turn off all instance listeners.
     vm.$off()
     // remove __vue__ reference
-    vm.$el.__vue__ = null
+    if (vm.$el) {
+      vm.$el.__vue__ = null
+    }
   }
 }
 

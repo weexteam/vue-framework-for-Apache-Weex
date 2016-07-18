@@ -4,7 +4,7 @@ function insertCSS (text) {
   document.head.appendChild(cssEl)
 }
 
-const duration = 50
+const duration = process.env.TRANSITION_DURATION || 50
 let injected = false
 
 export default function injectStyles () {
@@ -14,6 +14,10 @@ export default function injectStyles () {
     .test {
       -webkit-transition: opacity ${duration}ms ease;
       transition: opacity ${duration}ms ease;
+    }
+    .group-move {
+      -webkit-transition: -webkit-transform ${duration}ms ease;
+      transition: transform ${duration}ms ease;
     }
     .v-appear, .v-enter, .v-leave-active,
     .test-appear, .test-enter, .test-leave-active,

@@ -2,8 +2,8 @@ var path = require('path')
 var alias = require('./alias')
 
 module.exports = {
-  entry: path.resolve(__dirname, 'webpack.ssr.dev.entry.js'),
   target: 'node',
+  entry: path.resolve(__dirname, '../src/entries/web-server-renderer'),
   output: {
     path: path.resolve(__dirname, '../packages/vue-server-renderer'),
     filename: 'index.js',
@@ -13,9 +13,11 @@ module.exports = {
     alias: alias
   },
   externals: {
-    'entities': true
+    'entities': true,
+    'de-indent': true
   },
   module: {
+    noParse: /run-in-vm/,
     loaders: [
       {
         test: /\.js/,

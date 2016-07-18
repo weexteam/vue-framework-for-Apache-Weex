@@ -71,7 +71,7 @@ var builds = [
   {
     entry: 'src/entries/web-compiler.js',
     format: 'cjs',
-    external: ['entities'],
+    external: ['entities', 'de-indent'],
     out: 'packages/vue-template-compiler/index.js'
   },
   // Weex compiler (CommonJS).
@@ -85,7 +85,7 @@ var builds = [
   {
     entry: 'src/entries/web-server-renderer.js',
     format: 'cjs',
-    external: ['stream', 'entities'],
+    external: ['stream', 'module', 'vm', 'entities', 'de-indent'],
     out: 'packages/vue-server-renderer/index.js'
   }
 ]
