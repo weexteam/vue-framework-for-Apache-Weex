@@ -531,13 +531,7 @@ function popTarget() {
   Dep.target = targetStack.pop();
 }
 
-// We have two separate queues: one for internal component re-render updates
-// and one for user watcher registered via $watch(). We want to guarantee
-// re-render updates to be called before user watchers so that when user
-// watchers are triggered, the DOM would already be in updated state.
-
 var queue = [];
-var userQueue = [];
 var has = {};
 var circular = {};
 var waiting = false;
@@ -549,7 +543,6 @@ var index = 0;
  */
 function resetSchedulerState() {
   queue.length = 0;
-  userQueue.length = 0;
   has = {};
   if (process.env.NODE_ENV !== 'production') {
     circular = {};
@@ -562,36 +555,19 @@ function resetSchedulerState() {
  */
 function flushSchedulerQueue() {
   flushing = true;
-  runSchedulerQueue(queue.sort(queueSorter));
-  runSchedulerQueue(userQueue);
-  // user watchers triggered more watchers,
-  // keep flushing until it depletes
-  if (queue.length) {
-    return flushSchedulerQueue();
-  }
-  // devtool hook
-  /* istanbul ignore if */
-  if (devtools && config.devtools) {
-    devtools.emit('flush');
-  }
-  resetSchedulerState();
-}
 
-/**
- * Sort queue before flush.
- * This ensures components are updated from parent to child
- * so there will be no duplicate updates, e.g. a child was
- * pushed into the queue first and then its parent's props
- * changed.
- */
-function queueSorter(a, b) {
-  return a.id - b.id;
-}
+  // Sort queue before flush.
+  // This ensures that:
+  // 1. Components are updated from parent to child. (because parent is always
+  //    created before the child)
+  // 2. A component's user watchers are run before its render watcher (because
+  //    user watchers are created before the render watcher)
+  // 3. If a component is destroyed during a parent component's watcher run,
+  //    its watchers can be skipped.
+  queue.sort(function (a, b) {
+    return a.id - b.id;
+  });
 
-/**
- * Run the watchers in a single queue.
- */
-function runSchedulerQueue(queue) {
   // do not cache length because more watchers might be pushed
   // as we run existing watchers
   for (index = 0; index < queue.length; index++) {
@@ -608,7 +584,14 @@ function runSchedulerQueue(queue) {
       }
     }
   }
-  queue.length = 0;
+
+  // devtool hook
+  /* istanbul ignore if */
+  if (devtools && config.devtools) {
+    devtools.emit('flush');
+  }
+
+  resetSchedulerState();
 }
 
 /**
@@ -619,17 +602,17 @@ function runSchedulerQueue(queue) {
 function queueWatcher(watcher) {
   var id = watcher.id;
   if (has[id] == null) {
-    // push watcher into appropriate queue
-    var q = watcher.user ? userQueue : queue;
     has[id] = true;
     if (!flushing) {
-      q.push(watcher);
+      queue.push(watcher);
     } else {
-      var i = q.length - 1;
-      while (i >= 0 && q[i].id > watcher.id) {
+      // if already flushing, splice the watcher based on its id
+      // if already past its id, it will be run next immediately.
+      var i = queue.length - 1;
+      while (i >= 0 && queue[i].id > watcher.id) {
         i--;
       }
-      q.splice(Math.max(i, index) + 1, 0, watcher);
+      queue.splice(Math.max(i, index) + 1, 0, watcher);
     }
     // queue the flush
     if (!waiting) {
@@ -1424,8 +1407,8 @@ function initLifecycle(vm) {
 
   // locate first non-abstract parent
   var parent = options.parent;
-  if (parent && !options._abstract) {
-    while (parent.$options._abstract && parent.$parent) {
+  if (parent && !options.abstract) {
+    while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent;
     }
     parent.$children.push(vm);
@@ -1552,7 +1535,7 @@ function lifecycleMixin(Vue) {
     vm._isBeingDestroyed = true;
     // remove self from parent
     var parent = vm.$parent;
-    if (parent && !parent._isBeingDestroyed && !vm.$options._abstract) {
+    if (parent && !parent._isBeingDestroyed && !vm.$options.abstract) {
       remove(parent.$children, vm);
     }
     // teardown watchers
@@ -1650,9 +1633,17 @@ function createComponent(Ctor, data, parent, context, host, _children, tag) {
         });
       }
       return {
-        v: Ctor.options.render.call(null, parent.$createElement, { props: props, parent: parent, data: data, children: function children() {
+        v: Ctor.options.render.call(null, parent.$createElement, {
+          props: props,
+          parent: parent,
+          data: data,
+          children: function children() {
             return normalizeChildren(_children);
-          } })
+          },
+          slots: function slots() {
+            return resolveSlots(_children);
+          }
+        })
       };
     }();
 
@@ -1665,9 +1656,8 @@ function createComponent(Ctor, data, parent, context, host, _children, tag) {
   // extract listeners, since these needs to be treated as
   // child component listeners instead of DOM listeners
   var listeners = data.on;
-  if (listeners) {
-    delete data.on;
-  }
+  // replace with listeners with .native modifier
+  data.on = data.nativeOn;
 
   // return a placeholder vnode
   var name = Ctor.options.name || tag;
@@ -1705,12 +1695,16 @@ function init(vnode, hydrating) {
 
 function prepatch(oldVnode, vnode) {
   var options = vnode.componentOptions;
-  vnode.child = oldVnode.child;
-  vnode.child._updateFromParent(options.propsData, // updated props
+  var child = vnode.child = oldVnode.child;
+  child._updateFromParent(options.propsData, // updated props
   options.listeners, // updated listeners
   vnode, // new parent vnode
   options.children // new children
   );
+  // always update abstract components.
+  if (child.$options.abstract) {
+    child.$forceUpdate();
+  }
 }
 
 function insert(vnode) {
@@ -1786,26 +1780,31 @@ function extractProps(data, Ctor) {
   var res = {};
   var attrs = data.attrs;
   var props = data.props;
+  var domProps = data.domProps;
   var staticAttrs = data.staticAttrs;
-  if (!attrs && !props && !staticAttrs) {
-    return res;
-  }
-  for (var key in propOptions) {
-    var altKey = hyphenate(key);
-    checkProp(res, attrs, key, altKey) || checkProp(res, props, key, altKey) || checkProp(res, staticAttrs, key, altKey);
+
+  if (attrs || props || domProps || staticAttrs) {
+    for (var key in propOptions) {
+      var altKey = hyphenate(key);
+      checkProp(res, props, key, altKey, true) || checkProp(res, attrs, key, altKey) || checkProp(res, domProps, key, altKey) || checkProp(res, staticAttrs, key, altKey);
+    }
   }
   return res;
 }
 
-function checkProp(res, hash, key, altKey) {
+function checkProp(res, hash, key, altKey, preserve) {
   if (hash) {
     if (hasOwn(hash, key)) {
       res[key] = hash[key];
-      delete hash[key];
+      if (!preserve) {
+        delete hash[key];
+      }
       return true;
     } else if (hasOwn(hash, altKey)) {
       res[key] = hash[altKey];
-      delete hash[altKey];
+      if (!preserve) {
+        delete hash[altKey];
+      }
       return true;
     }
   }
@@ -1924,9 +1923,7 @@ function renderMixin(Vue) {
     vm.$vnode = _parentVnode;
     // resolve slots. becaues slots are rendered in parent scope,
     // we set the activeInstance to parent.
-    if (_renderChildren) {
-      resolveSlots(vm, _renderChildren);
-    }
+    vm.$slots = resolveSlots(_renderChildren);
     // render self
     var vnode = void 0;
     try {
@@ -2013,7 +2010,7 @@ function renderMixin(Vue) {
   };
 
   // apply v-bind object
-  Vue.prototype._b = function bindProps(vnode, value) {
+  Vue.prototype._b = function bindProps(vnode, value, asProp) {
     if (value) {
       if (!isObject(value)) {
         process.env.NODE_ENV !== 'production' && warn('v-bind without argument expects an Object or Array value', this);
@@ -2023,7 +2020,7 @@ function renderMixin(Vue) {
         }
         var data = vnode.data;
         for (var key in value) {
-          var hash = config.mustUseProp(key) ? data.props || (data.props = {}) : data.attrs || (data.attrs = {});
+          var hash = asProp || config.mustUseProp(key) ? data.domProps || (data.domProps = {}) : data.attrs || (data.attrs = {});
           hash[key] = value[key];
         }
       }
@@ -2036,8 +2033,11 @@ function renderMixin(Vue) {
   };
 }
 
-function resolveSlots(vm, renderChildren) {
-  var slots = vm.$slots = {};
+function resolveSlots(renderChildren) {
+  var slots = {};
+  if (!renderChildren) {
+    return slots;
+  }
   var children = normalizeChildren(renderChildren) || [];
   var defaultSlot = [];
   var name = void 0,
@@ -2060,6 +2060,7 @@ function resolveSlots(vm, renderChildren) {
   if (defaultSlot.length && !(defaultSlot.length === 1 && defaultSlot[0].text === ' ')) {
     slots.default = defaultSlot;
   }
+  return slots;
 }
 
 function initEvents(vm) {
@@ -2514,9 +2515,10 @@ function validateProp(key, propOptions, propsData, vm) {
     value = getPropDefaultValue(vm, prop, key);
     // since the default value is a fresh copy,
     // make sure to observe it.
+    var prevShouldConvert = observerState.shouldConvert;
     observerState.shouldConvert = true;
     observe(value);
-    observerState.shouldConvert = false;
+    observerState.shouldConvert = prevShouldConvert;
   }
   if (process.env.NODE_ENV !== 'production') {
     assertProp(prop, key, value, vm, absent);
@@ -2656,10 +2658,17 @@ var isIE = UA && /msie|trident/.test(UA);
 var isIE9 = UA && UA.indexOf('msie 9.0') > 0;
 var isAndroid = UA && UA.indexOf('android') > 0;
 
+// some browsers, e.g. PhantomJS, encodes attribute values for innerHTML
+// this causes problems with the in-browser parser.
+var shouldDecodeAttr = inBrowser ? function () {
+  var div = document.createElement('div');
+  div.innerHTML = '<div a=">">';
+  return div.innerHTML.indexOf('&gt;') > 0;
+}() : false;
+
 // Regular Expressions for parsing tags and attributes
 var singleAttrIdentifier = /([^\s"'<>\/=]+)/;
-var singleAttrAssign = /=/;
-var singleAttrAssigns = [singleAttrAssign];
+var singleAttrAssign = /(?:=)/;
 var singleAttrValues = [
 // attr value double quotes
 /"([^"]*)"+/.source,
@@ -2667,6 +2676,8 @@ var singleAttrValues = [
 /'([^']*)'+/.source,
 // attr value, no quotes
 /([^\s"'=<>`]+)/.source];
+var attribute = new RegExp('^\\s*' + singleAttrIdentifier.source + '(?:\\s*(' + singleAttrAssign.source + ')' + '\\s*(?:' + singleAttrValues.join('|') + '))?');
+
 // could use https://www.w3.org/TR/1999/REC-xml-names-19990114/#NT-QName
 // but for Vue templates we can enforce a simple charset
 var ncname = '[a-zA-Z_][\\w\\-\\.]*';
@@ -2686,22 +2697,11 @@ var isSpecialTag = makeMap('script,style', true);
 
 var reCache = {};
 
-function attrForHandler(handler) {
-  var pattern = singleAttrIdentifier.source + '(?:\\s*(' + joinSingleAttrAssigns(handler) + ')' + '\\s*(?:' + singleAttrValues.join('|') + '))?';
-  return new RegExp('^\\s*' + pattern);
-}
-
-function joinSingleAttrAssigns(handler) {
-  return singleAttrAssigns.map(function (assign) {
-    return '(?:' + assign.source + ')';
-  }).join('|');
-}
-
-function parseHTML(html, handler) {
+function parseHTML(html, options) {
   var stack = [];
-  var attribute = attrForHandler(handler);
-  var expectHTML = handler.expectHTML;
-  var isUnaryTag = handler.isUnaryTag || no;
+  var expectHTML = options.expectHTML;
+  var isUnaryTag = options.isUnaryTag || no;
+  var shouldDecodeAttr = options.shouldDecodeAttr;
   var index = 0;
   var last = void 0,
       lastTag = void 0;
@@ -2734,9 +2734,6 @@ function parseHTML(html, handler) {
         // Doctype:
         var doctypeMatch = html.match(doctype);
         if (doctypeMatch) {
-          if (handler.doctype) {
-            handler.doctype(doctypeMatch[0]);
-          }
           advance(doctypeMatch[0].length);
           continue;
         }
@@ -2767,8 +2764,8 @@ function parseHTML(html, handler) {
         html = '';
       }
 
-      if (handler.chars) {
-        handler.chars(text);
+      if (options.chars) {
+        options.chars(text);
       }
     } else {
       (function () {
@@ -2780,8 +2777,8 @@ function parseHTML(html, handler) {
           if (stackedTag !== 'script' && stackedTag !== 'style' && stackedTag !== 'noscript') {
             text = text.replace(/<!--([\s\S]*?)-->/g, '$1').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
           }
-          if (handler.chars) {
-            handler.chars(text);
+          if (options.chars) {
+            options.chars(text);
           }
           return '';
         });
@@ -2859,9 +2856,10 @@ function parseHTML(html, handler) {
           delete args[5];
         }
       }
+      var value = args[3] || args[4] || args[5] || '';
       attrs[i] = {
         name: args[1],
-        value: entities.decodeHTML(args[3] || args[4] || args[5] || '')
+        value: shouldDecodeAttr ? entities.decodeHTML(value, true) : value
       };
     }
 
@@ -2871,8 +2869,8 @@ function parseHTML(html, handler) {
       unarySlash = '';
     }
 
-    if (handler.start) {
-      handler.start(tagName, attrs, unary, match.start, match.end);
+    if (options.start) {
+      options.start(tagName, attrs, unary, match.start, match.end);
     }
   }
 
@@ -2897,8 +2895,8 @@ function parseHTML(html, handler) {
     if (pos >= 0) {
       // Close all the open elements, up the stack
       for (var i = stack.length - 1; i >= pos; i--) {
-        if (handler.end) {
-          handler.end(stack[i].tag, start, end);
+        if (options.end) {
+          options.end(stack[i].tag, start, end);
         }
       }
 
@@ -2906,15 +2904,15 @@ function parseHTML(html, handler) {
       stack.length = pos;
       lastTag = pos && stack[pos - 1].tag;
     } else if (tagName.toLowerCase() === 'br') {
-      if (handler.start) {
-        handler.start(tagName, [], true, start, end);
+      if (options.start) {
+        options.start(tagName, [], true, start, end);
       }
     } else if (tagName.toLowerCase() === 'p') {
-      if (handler.start) {
-        handler.start(tagName, [], false, start, end);
+      if (options.start) {
+        options.start(tagName, [], false, start, end);
       }
-      if (handler.end) {
-        handler.end(tagName, start, end);
+      if (options.end) {
+        options.end(tagName, start, end);
       }
     }
   }
@@ -3080,11 +3078,17 @@ function addHook(el, name, code) {
 }
 
 function addHandler(el, name, value, modifiers) {
-  var events = el.events || (el.events = {});
   // check capture modifier
   if (modifiers && modifiers.capture) {
     delete modifiers.capture;
     name = '!' + name; // mark the event as captured
+  }
+  var events = void 0;
+  if (modifiers && modifiers.native) {
+    delete modifiers.native;
+    events = el.nativeEvents || (el.nativeEvents = {});
+  } else {
+    events = el.events || (el.events = {});
   }
   var newHandler = { value: value, modifiers: modifiers };
   var handlers = events[name];
@@ -3138,9 +3142,7 @@ var decodeHTMLCached = cached(entities.decodeHTML);
 var warn$1 = void 0;
 var platformGetTagNamespace = void 0;
 var platformMustUseProp = void 0;
-var preTransforms = void 0;
 var transforms = void 0;
-var postTransforms = void 0;
 var delimiters = void 0;
 
 /**
@@ -3150,9 +3152,7 @@ function parse(template, options) {
   warn$1 = options.warn || baseWarn;
   platformGetTagNamespace = options.getTagNamespace || no;
   platformMustUseProp = options.mustUseProp || no;
-  preTransforms = pluckModuleFunction(options.modules, 'preTransformNode');
   transforms = pluckModuleFunction(options.modules, 'transformNode');
-  postTransforms = pluckModuleFunction(options.modules, 'postTransformNode');
   delimiters = options.delimiters;
   var stack = [];
   var preserveWhitespace = options.preserveWhitespace !== false;
@@ -3163,6 +3163,7 @@ function parse(template, options) {
   parseHTML(template, {
     expectHTML: options.expectHTML,
     isUnaryTag: options.isUnaryTag,
+    shouldDecodeAttr: options.shouldDecodeAttr,
     start: function start(tag, attrs, unary) {
       // check namespace.
       // inherit parent ns if there is one
@@ -3191,11 +3192,6 @@ function parse(template, options) {
         process.env.NODE_ENV !== 'production' && warn$1('Templates should only be responsbile for mapping the state to the ' + 'UI. Avoid placing tags with side-effects in your templates, such as ' + ('<' + tag + '>.'));
       }
 
-      // apply pre-transforms
-      for (var i = 0; i < preTransforms.length; i++) {
-        preTransforms[i](element, options);
-      }
-
       if (!inPre) {
         processPre(element);
         if (element.pre) {
@@ -3217,8 +3213,8 @@ function parse(template, options) {
         processRef(element);
         processSlot(element);
         processComponent(element);
-        for (var _i = 0; _i < transforms.length; _i++) {
-          transforms[_i](element, options);
+        for (var i = 0; i < transforms.length; i++) {
+          transforms[i](element, options);
         }
         processAttrs(element);
       }
@@ -3250,10 +3246,6 @@ function parse(template, options) {
       if (!unary) {
         currentParent = element;
         stack.push(element);
-      }
-      // apply post-transforms
-      for (var _i2 = 0; _i2 < postTransforms.length; _i2++) {
-        postTransforms[_i2](element, options);
       }
     },
     end: function end() {
@@ -3426,7 +3418,8 @@ function processAttrs(el) {
       name = void 0,
       value = void 0,
       arg = void 0,
-      modifiers = void 0;
+      modifiers = void 0,
+      isProp = void 0;
   for (i = 0, l = list.length; i < l; i++) {
     name = list[i].name;
     value = list[i].value;
@@ -3439,7 +3432,12 @@ function processAttrs(el) {
       if (bindRE.test(name)) {
         // v-bind
         name = name.replace(bindRE, '');
-        if (platformMustUseProp(name)) {
+        if (modifiers && modifiers.prop) {
+          isProp = true;
+          name = camelize(name);
+          if (name === 'innerHtml') name = 'innerHTML';
+        }
+        if (isProp || platformMustUseProp(name)) {
           addProp(el, name, value);
         } else {
           addAttr(el, name, value);
@@ -3620,8 +3618,8 @@ var modifierCode = {
   self: 'if($event.target !== $event.currentTarget)return;'
 };
 
-function genHandlers(events) {
-  var res = 'on:{';
+function genHandlers(events, native) {
+  var res = native ? 'nativeOn:{' : 'on:{';
   for (var name in events) {
     res += '"' + name + '":' + genHandler(events[name]) + ',';
   }
@@ -3659,7 +3657,7 @@ function genKeyFilter(key) {
 }
 
 function bind$1(el, dir) {
-  addHook(el, 'construct', '_b(n1,' + dir.value + ')');
+  addHook(el, 'construct', '_b(n1,' + dir.value + (dir.modifiers && dir.modifiers.prop ? ',true' : '') + ')');
 }
 
 var baseDirectives = {
@@ -3793,10 +3791,6 @@ function genData(el) {
   if (el.attrsMap['v-show']) {
     data += 'show:true,';
   }
-  // props
-  if (el.props) {
-    data += 'props:{' + genProps(el.props) + '},';
-  }
   // attributes
   if (el.attrs) {
     data += 'attrs:{' + genProps(el.attrs) + '},';
@@ -3805,6 +3799,10 @@ function genData(el) {
   if (el.staticAttrs) {
     data += 'staticAttrs:{' + genProps(el.staticAttrs) + '},';
   }
+  // DOM props
+  if (el.props) {
+    data += 'domProps:{' + genProps(el.props) + '},';
+  }
   // hooks
   if (el.hooks) {
     data += 'hook:{' + genHooks(el.hooks) + '},';
@@ -3812,6 +3810,9 @@ function genData(el) {
   // event handlers
   if (el.events) {
     data += genHandlers(el.events) + ',';
+  }
+  if (el.nativeEvents) {
+    data += '' + genHandlers(el.nativeEvents, true);
   }
   // inline-template
   if (el.inlineTemplate) {
@@ -4067,7 +4068,7 @@ function genCheckboxModel(el, value) {
   var trueValueBinding = getBindingAttr(el, 'true-value') || 'true';
   var falseValueBinding = getBindingAttr(el, 'false-value') || 'false';
   addProp(el, 'checked', 'Array.isArray(' + value + ')' + ('?(' + value + ').indexOf(' + valueBinding + ')>-1') + (':(' + value + ')===(' + trueValueBinding + ')'));
-  addHandler(el, 'change', 'var $$a=' + value + ',' + '$$el=$event.target,' + ('$$c=$$el.checked?(' + trueValueBinding + '):(' + falseValueBinding + ');') + 'if(Array.isArray($$a)){' + ('var $$v=' + valueBinding + ',') + '$$i=$$a.indexOf($$v);' + 'if($$c){$$i<0&&$$a.push($$v)}' + 'else{$$i>-1&&$$a.splice($$i,1)}' + ('}else{' + value + '=$$c}'));
+  addHandler(el, 'change', 'var $$a=' + value + ',' + '$$el=$event.target,' + ('$$c=$$el.checked?(' + trueValueBinding + '):(' + falseValueBinding + ');') + 'if(Array.isArray($$a)){' + ('var $$v=' + valueBinding + ',') + '$$i=$$a.indexOf($$v);' + ('if($$c){$$i<0&&(' + value + '=$$a.concat($$v))}') + ('else{$$i>-1&&(' + value + '=$$a.slice(0,$$i).concat($$a.slice($$i+1)))}') + ('}else{' + value + '=$$c}'));
 }
 
 function genRadioModel(el, value) {

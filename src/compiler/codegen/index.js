@@ -1,8 +1,8 @@
 /* @flow */
 
 import { genHandlers } from './events'
-import { baseWarn, pluckModuleFunction } from './helpers'
-import baseDirectives from './directives/index'
+import { baseWarn, pluckModuleFunction } from '../helpers'
+import baseDirectives from '../directives/index'
 import { no } from 'shared/util'
 
 // configurable state
@@ -146,10 +146,6 @@ function genData (el: ASTElement): string | void {
   if (el.attrsMap['v-show']) {
     data += 'show:true,'
   }
-  // props
-  if (el.props) {
-    data += `props:{${genProps(el.props)}},`
-  }
   // attributes
   if (el.attrs) {
     data += `attrs:{${genProps(el.attrs)}},`
@@ -158,6 +154,10 @@ function genData (el: ASTElement): string | void {
   if (el.staticAttrs) {
     data += `staticAttrs:{${genProps(el.staticAttrs)}},`
   }
+  // DOM props
+  if (el.props) {
+    data += `domProps:{${genProps(el.props)}},`
+  }
   // hooks
   if (el.hooks) {
     data += `hook:{${genHooks(el.hooks)}},`
@@ -165,6 +165,9 @@ function genData (el: ASTElement): string | void {
   // event handlers
   if (el.events) {
     data += `${genHandlers(el.events)},`
+  }
+  if (el.nativeEvents) {
+    data += `${genHandlers(el.nativeEvents, true)}`
   }
   // inline-template
   if (el.inlineTemplate) {

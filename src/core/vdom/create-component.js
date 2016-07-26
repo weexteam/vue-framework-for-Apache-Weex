@@ -4,6 +4,7 @@ import Vue from '../instance/index'
 import VNode from './vnode'
 import { normalizeChildren } from './helpers'
 import { callHook } from '../instance/lifecycle'
+import { resolveSlots } from '../instance/render'
 import { warn, isObject, hasOwn, hyphenate, validateProp } from '../util/index'
 
 const hooks = { init, prepatch, insert, destroy }
@@ -79,7 +80,13 @@ export function createComponent (
     return Ctor.options.render.call(
       null,
       parent.$createElement,
-      { props, parent, data, children: () => normalizeChildren(children) }
+      {
+        props,
+        parent,
+        data,
+        children: () => normalizeChildren(children),
+        slots: () => resolveSlots(children)
+      }
     )
   }
 
@@ -89,9 +96,8 @@ export function createComponent (
   // extract listeners, since these needs to be treated as
   // child component listeners instead of DOM listeners
   const listeners = data.on
-  if (listeners) {
-    delete data.on
-  }
+  // replace with listeners with .native modifier
+  data.on = data.nativeOn
 
   // return a placeholder vnode
   const name = Ctor.options.name || tag
@@ -137,13 +143,17 @@ function prepatch (
   vnode: MountedComponentVNode
 ) {
   const options = vnode.componentOptions
-  vnode.child = oldVnode.child
-  vnode.child._updateFromParent(
+  const child = vnode.child = oldVnode.child
+  child._updateFromParent(
     options.propsData, // updated props
     options.listeners, // updated listeners
     vnode, // new parent vnode
     options.children // new children
   )
+  // always update abstract components.
+  if (child.$options.abstract) {
+    child.$forceUpdate()
+  }
 }
 
 function insert (vnode: MountedComponentVNode) {
@@ -218,17 +228,15 @@ function extractProps (data: VNodeData, Ctor: Class<Component>): ?Object {
     return
   }
   const res = {}
-  const attrs = data.attrs
-  const props = data.props
-  const staticAttrs = data.staticAttrs
-  if (!attrs && !props && !staticAttrs) {
-    return res
-  }
-  for (const key in propOptions) {
-    const altKey = hyphenate(key)
-    checkProp(res, attrs, key, altKey) ||
-    checkProp(res, props, key, altKey) ||
-    checkProp(res, staticAttrs, key, altKey)
+  const { attrs, props, domProps, staticAttrs } = data
+  if (attrs || props || domProps || staticAttrs) {
+    for (const key in propOptions) {
+      const altKey = hyphenate(key)
+      checkProp(res, props, key, altKey, true) ||
+      checkProp(res, attrs, key, altKey) ||
+      checkProp(res, domProps, key, altKey) ||
+      checkProp(res, staticAttrs, key, altKey)
+    }
   }
   return res
 }
@@ -237,16 +245,21 @@ function checkProp (
   res: Object,
   hash: ?Object,
   key: string,
-  altKey: string
+  altKey: string,
+  preserve?: boolean
 ): boolean {
   if (hash) {
     if (hasOwn(hash, key)) {
       res[key] = hash[key]
-      delete hash[key]
+      if (!preserve) {
+        delete hash[key]
+      }
       return true
     } else if (hasOwn(hash, altKey)) {
       res[key] = hash[altKey]
-      delete hash[altKey]
+      if (!preserve) {
+        delete hash[altKey]
+      }
       return true
     }
   }

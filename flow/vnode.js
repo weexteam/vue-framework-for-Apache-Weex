@@ -1,15 +1,15 @@
 declare type VNodeChildren = Array<any> | () => Array<any> | string
 
 declare type VNodeComponentOptions = {
-  Ctor: Class<Component>,
-  propsData: ?Object,
-  listeners: ?Object,
-  parent: Component,
-  children: ?VNodeChildren,
-  tag?: string
+  Ctor: Class<Component>;
+  propsData: ?Object;
+  listeners: ?Object;
+  parent: Component;
+  children: ?VNodeChildren;
+  tag?: string;
 }
 
-declare interface MountedComponentVNode {
+declare type MountedComponentVNode = {
   componentOptions: VNodeComponentOptions;
   child: Component;
   parent: VNode;
@@ -17,7 +17,7 @@ declare interface MountedComponentVNode {
 }
 
 // interface for vnodes in update modules
-declare interface VNodeWithData {
+declare type VNodeWithData = {
   tag: string;
   data: VNodeData;
   children: Array<VNode> | void;
@@ -41,22 +41,24 @@ declare interface VNodeData {
   show?: true;
   props?: { [key: string]: any };
   attrs?: { [key: string]: string };
+  domProps?: { [key: string]: any };
   staticAttrs?: { [key: string]: string };
   hook?: { [key: string]: Function };
-  on?: { [key: string]: Function | Array<Function> };
+  on?: ?{ [key: string]: Function | Array<Function> };
+  nativeOn?: { [key: string]: Function | Array<Function> };
   transition?: Object;
   inlineTemplate?: {
-    render: Function,
-    staticRenderFns: Array<Function>
+    render: Function;
+    staticRenderFns: Array<Function>;
   };
   directives?: Array<VNodeDirective>;
   keepAlive?: boolean;
 }
 
 declare type VNodeDirective = {
-  name: string,
-  value?: any,
-  oldValue?: any,
-  arg?: string,
-  modifiers?: { [key: string]: boolean }
+  name: string;
+  value?: any;
+  oldValue?: any;
+  arg?: string;
+  modifiers?: { [key: string]: boolean };
 }

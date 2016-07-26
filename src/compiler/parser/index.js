@@ -3,7 +3,7 @@
 import { decodeHTML } from 'entities'
 import { parseHTML } from './html-parser'
 import { parseText } from './text-parser'
-import { cached, no } from 'shared/util'
+import { cached, no, camelize } from 'shared/util'
 import {
   pluckModuleFunction,
   getAndRemoveAttr,
@@ -30,9 +30,7 @@ const decodeHTMLCached = cached(decodeHTML)
 let warn
 let platformGetTagNamespace
 let platformMustUseProp
-let preTransforms
 let transforms
-let postTransforms
 let delimiters
 
 /**
@@ -45,9 +43,7 @@ export function parse (
   warn = options.warn || baseWarn
   platformGetTagNamespace = options.getTagNamespace || no
   platformMustUseProp = options.mustUseProp || no
-  preTransforms = pluckModuleFunction(options.modules, 'preTransformNode')
   transforms = pluckModuleFunction(options.modules, 'transformNode')
-  postTransforms = pluckModuleFunction(options.modules, 'postTransformNode')
   delimiters = options.delimiters
   const stack = []
   const preserveWhitespace = options.preserveWhitespace !== false
@@ -58,6 +54,7 @@ export function parse (
   parseHTML(template, {
     expectHTML: options.expectHTML,
     isUnaryTag: options.isUnaryTag,
+    shouldDecodeAttr: options.shouldDecodeAttr,
     start (tag, attrs, unary) {
       // check namespace.
       // inherit parent ns if there is one
@@ -88,11 +85,6 @@ export function parse (
           'UI. Avoid placing tags with side-effects in your templates, such as ' +
           `<${tag}>.`
         )
-      }
-
-      // apply pre-transforms
-      for (let i = 0; i < preTransforms.length; i++) {
-        preTransforms[i](element, options)
       }
 
       if (!inPre) {
@@ -157,10 +149,6 @@ export function parse (
       if (!unary) {
         currentParent = element
         stack.push(element)
-      }
-      // apply post-transforms
-      for (let i = 0; i < postTransforms.length; i++) {
-        postTransforms[i](element, options)
       }
     },
 
@@ -337,7 +325,7 @@ function processComponent (el) {
 
 function processAttrs (el) {
   const list = el.attrsList
-  let i, l, name, value, arg, modifiers
+  let i, l, name, value, arg, modifiers, isProp
   for (i = 0, l = list.length; i < l; i++) {
     name = list[i].name
     value = list[i].value
@@ -349,7 +337,12 @@ function processAttrs (el) {
       }
       if (bindRE.test(name)) { // v-bind
         name = name.replace(bindRE, '')
-        if (platformMustUseProp(name)) {
+        if (modifiers && modifiers.prop) {
+          isProp = true
+          name = camelize(name)
+          if (name === 'innerHtml') name = 'innerHTML'
+        }
+        if (isProp || platformMustUseProp(name)) {
           addProp(el, name, value)
         } else {
           addAttr(el, name, value)
