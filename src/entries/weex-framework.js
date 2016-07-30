@@ -63,10 +63,10 @@ export function getRoot (instanceId) {
   return instance.app.$el.toJSON()
 }
 
-export function callJS (instanceId, tasks) {
+export function receiveTasks (instanceId, tasks) {
   const instance = instances[instanceId] || {}
   if (!instance.app instanceof Vue) {
-    return new Error(`callJS: instance ${instanceId} not found!`)
+    return new Error(`receiveTasks: instance ${instanceId} not found!`)
   }
   const { callbacks, document } = instance
   tasks.forEach(task => {
