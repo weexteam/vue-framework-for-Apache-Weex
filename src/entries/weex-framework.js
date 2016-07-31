@@ -96,7 +96,12 @@ export function registerModules (newModules) {
       modules[name] = {}
     }
     newModules[name].forEach(method => {
-      modules[name][method.name] = method.args
+      if (typeof method === 'string') {
+        modules[name][method] = true
+      }
+      else {
+        modules[name][method.name] = method.args
+      }
     })
   }
 }
@@ -169,11 +174,16 @@ function genModuleGetter (instanceId) {
     for (const methodName in nativeModule) {
       const defaultArgs = nativeModule[methodName]
       output[methodName] = (...args) => {
-        const finalArgs = []
-        defaultArgs.forEach((arg, index) => {
-          const value = args[index]
-          finalArgs[index] = normalize(value, instance)
-        })
+        let finalArgs = []
+        if (defaultArgs === true) {
+          finalArgs = args
+        }
+        else {
+          defaultArgs.forEach((arg, index) => {
+            const value = args[index]
+            finalArgs[index] = normalize(value, instance)
+          })
+        }
         renderer.sendTasks(instanceId + '', [{ module: name, method: methodName, args: finalArgs }])
       }
     }
