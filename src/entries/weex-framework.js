@@ -33,7 +33,7 @@ export function createInstance (
   })
 
   start(subVue, genModuleGetter(instanceId))
-  renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'createFinish', args: [] }])
+  renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'createFinish', args: [] }], -1)
 }
 
 export function destroyInstance (instanceId) {
@@ -52,7 +52,7 @@ export function refreshInstance (instanceId, data) {
   for (const key in data) {
     Vue.set(instance.app, key, data[key])
   }
-  renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'refreshFinish', args: [] }])
+  renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'refreshFinish', args: [] }], -1)
 }
 
 export function getRoot (instanceId) {
@@ -87,7 +87,7 @@ export function receiveTasks (instanceId, tasks) {
     }
   })
 
-  renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'updateFinish', args: [] }])
+  renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'updateFinish', args: [] }], -1)
 }
 
 export function registerModules (newModules) {
@@ -184,7 +184,7 @@ function genModuleGetter (instanceId) {
             finalArgs[index] = normalize(value, instance)
           })
         }
-        renderer.sendTasks(instanceId + '', [{ module: name, method: methodName, args: finalArgs }])
+        renderer.sendTasks(instanceId + '', [{ module: name, method: methodName, args: finalArgs }], -1)
       }
     }
     return output
