@@ -90,14 +90,20 @@ export function createComponent (
     )
   }
 
-  // merge component management hooks onto the placeholder node
-  mergeHooks(data)
-
   // extract listeners, since these needs to be treated as
   // child component listeners instead of DOM listeners
   const listeners = data.on
   // replace with listeners with .native modifier
   data.on = data.nativeOn
+
+  if (Ctor.options.abstract) {
+    // abstract components do not keep anything
+    // other than props & listeners
+    data = {}
+  }
+
+  // merge component management hooks onto the placeholder node
+  mergeHooks(data)
 
   // return a placeholder vnode
   const name = Ctor.options.name || tag
@@ -228,14 +234,13 @@ function extractProps (data: VNodeData, Ctor: Class<Component>): ?Object {
     return
   }
   const res = {}
-  const { attrs, props, domProps, staticAttrs } = data
-  if (attrs || props || domProps || staticAttrs) {
+  const { attrs, props, domProps } = data
+  if (attrs || props || domProps) {
     for (const key in propOptions) {
       const altKey = hyphenate(key)
       checkProp(res, props, key, altKey, true) ||
       checkProp(res, attrs, key, altKey) ||
-      checkProp(res, domProps, key, altKey) ||
-      checkProp(res, staticAttrs, key, altKey)
+      checkProp(res, domProps, key, altKey)
     }
   }
   return res

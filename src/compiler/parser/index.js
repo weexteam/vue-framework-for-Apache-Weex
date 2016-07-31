@@ -9,7 +9,6 @@ import {
   getAndRemoveAttr,
   addProp,
   addAttr,
-  addStaticAttr,
   addHandler,
   addDirective,
   getBindingAttr,
@@ -30,7 +29,10 @@ const decodeHTMLCached = cached(decodeHTML)
 let warn
 let platformGetTagNamespace
 let platformMustUseProp
+let platformIsPreTag
+let preTransforms
 let transforms
+let postTransforms
 let delimiters
 
 /**
@@ -43,18 +45,23 @@ export function parse (
   warn = options.warn || baseWarn
   platformGetTagNamespace = options.getTagNamespace || no
   platformMustUseProp = options.mustUseProp || no
+  platformIsPreTag = options.isPreTag || no
+  preTransforms = pluckModuleFunction(options.modules, 'preTransformNode')
   transforms = pluckModuleFunction(options.modules, 'transformNode')
+  postTransforms = pluckModuleFunction(options.modules, 'postTransformNode')
   delimiters = options.delimiters
   const stack = []
   const preserveWhitespace = options.preserveWhitespace !== false
   let root
   let currentParent
+  let inVPre = false
   let inPre = false
   let warned = false
   parseHTML(template, {
     expectHTML: options.expectHTML,
     isUnaryTag: options.isUnaryTag,
-    shouldDecodeAttr: options.shouldDecodeAttr,
+    isFromDOM: options.isFromDOM,
+    shouldDecodeTags: options.shouldDecodeTags,
     start (tag, attrs, unary) {
       // check namespace.
       // inherit parent ns if there is one
@@ -87,13 +94,21 @@ export function parse (
         )
       }
 
-      if (!inPre) {
+      // apply pre-transforms
+      for (let i = 0; i < preTransforms.length; i++) {
+        preTransforms[i](element, options)
+      }
+
+      if (!inVPre) {
         processPre(element)
         if (element.pre) {
-          inPre = true
+          inVPre = true
         }
       }
-      if (inPre) {
+      if (platformIsPreTag(element.tag)) {
+        inPre = true
+      }
+      if (inVPre) {
         processRawAttrs(element)
       } else {
         processFor(element)
@@ -114,29 +129,37 @@ export function parse (
         processAttrs(element)
       }
 
-      // tree management
-      if (!root) {
-        root = element
-        // check root element constraints
+      function checkRootConstraints (el) {
         if (process.env.NODE_ENV !== 'production') {
-          if (tag === 'slot' || tag === 'template') {
+          if (el.tag === 'slot' || el.tag === 'template') {
             warn(
-              `Cannot use <${tag}> as component root element because it may ` +
+              `Cannot use <${el.tag}> as component root element because it may ` +
               'contain multiple nodes:\n' + template
             )
           }
-          if (element.attrsMap.hasOwnProperty('v-for')) {
+          if (el.attrsMap.hasOwnProperty('v-for')) {
             warn(
               'Cannot use v-for on stateful component root element because ' +
               'it renders multiple elements:\n' + template
             )
           }
         }
+      }
+
+      // tree management
+      if (!root) {
+        root = element
+        checkRootConstraints(root)
       } else if (process.env.NODE_ENV !== 'production' && !stack.length && !warned) {
-        warned = true
-        warn(
-          `Component template should contain exactly one root element:\n\n${template}`
-        )
+        // allow 2 root elements with v-if and v-else
+        if ((root.attrsMap.hasOwnProperty('v-if') && element.attrsMap.hasOwnProperty('v-else'))) {
+          checkRootConstraints(element)
+        } else {
+          warned = true
+          warn(
+            `Component template should contain exactly one root element:\n\n${template}`
+          )
+        }
       }
       if (currentParent && !element.forbidden) {
         if (element.else) {
@@ -149,6 +172,10 @@ export function parse (
       if (!unary) {
         currentParent = element
         stack.push(element)
+      }
+      // apply post-transforms
+      for (let i = 0; i < postTransforms.length; i++) {
+        postTransforms[i](element, options)
       }
     },
 
@@ -164,6 +191,9 @@ export function parse (
       currentParent = stack[stack.length - 1]
       // check pre state
       if (element.pre) {
+        inVPre = false
+      }
+      if (platformIsPreTag(element.tag)) {
         inPre = false
       }
     },
@@ -178,13 +208,13 @@ export function parse (
         }
         return
       }
-      text = currentParent.tag === 'pre' || text.trim()
+      text = inPre || text.trim()
         ? decodeHTMLCached(text)
         // only preserve whitespace if its not right after a starting tag
         : preserveWhitespace && currentParent.children.length ? ' ' : ''
       if (text) {
         let expression
-        if (!inPre && text !== ' ' && (expression = parseText(text, delimiters))) {
+        if (!inVPre && text !== ' ' && (expression = parseText(text, delimiters))) {
           currentParent.children.push({
             type: 2,
             expression,
@@ -211,7 +241,7 @@ function processPre (el) {
 function processRawAttrs (el) {
   const l = el.attrsList.length
   if (l) {
-    const attrs = el.staticAttrs = new Array(l)
+    const attrs = el.attrs = new Array(l)
     for (let i = 0; i < l; i++) {
       attrs[i] = {
         name: el.attrsList[i].name,
@@ -330,6 +360,8 @@ function processAttrs (el) {
     name = list[i].name
     value = list[i].value
     if (dirRE.test(name)) {
+      // mark element as dynamic
+      el.hasBindings = true
       // modifiers
       modifiers = parseModifiers(name)
       if (modifiers) {
@@ -371,7 +403,7 @@ function processAttrs (el) {
           )
         }
       }
-      addStaticAttr(el, name, JSON.stringify(value))
+      addAttr(el, name, JSON.stringify(value))
     }
   }
 }

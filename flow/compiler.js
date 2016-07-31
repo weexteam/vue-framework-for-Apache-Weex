@@ -8,10 +8,12 @@ declare type CompilerOptions = {
   isUnaryTag?: (tag: string) => ?boolean; // check if a tag is unary for the platform
   isReservedTag?: (tag: string) => ?boolean; // check if a tag is a native for the platform
   mustUseProp?: (attr: string) => ?boolean; // check if an attribute should be bound as a property
+  isPreTag?: (attr: string) => ?boolean; // check if a tag needs to preserve whitespace
   getTagNamespace?: (tag: string) => ?string; // check the namespace for a tag
   transforms?: Array<Function>; // a list of transforms on parsed AST before codegen
   preserveWhitespace?: boolean;
-  shouldDecodeAttr?: boolean;
+  isFromDOM?: boolean;
+  shouldDecodeTags?: boolean;
 
   // runtime user-configurable
   delimiters?: [string, string]; // template delimiters
@@ -30,7 +32,9 @@ declare type CompiledFunctionResult = {
 }
 
 declare type ModuleOptions = {
+  preTransformNode: (el: ASTElement) => void;
   transformNode: (el: ASTElement) => void; // transform an element's AST node
+  postTransformNode: (el: ASTElement) => void;
   genData: (el: ASTElement) => string; // generate extra data string for an element
   transformCode?: (el: ASTElement, code: string) => string; // further transform generated code for an element
   staticKeys?: Array<string>; // AST properties to be considered static
@@ -67,11 +71,11 @@ declare type ASTElement = {
   static?: boolean;
   staticRoot?: boolean;
   staticProcessed?: boolean;
+  hasBindings?: boolean;
 
   text?: string;
   attrs?: Array<{ name: string; value: string }>;
   props?: Array<{ name: string; value: string }>;
-  staticAttrs?: Array<{ name: string; value: string }>;
   plain?: boolean;
   pre?: true;
   ns?: string;

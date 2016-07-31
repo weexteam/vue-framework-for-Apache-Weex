@@ -76,6 +76,35 @@ describe('parser', () => {
     expect('Component template should contain exactly one root element').toHaveBeenWarned()
   })
 
+  it('warn multiple root elements', () => {
+    parse('<div></div><div></div>', baseOptions)
+    expect('Component template should contain exactly one root element:\n\n<div></div><div></div>').toHaveBeenWarned()
+  })
+
+  it('not warn 2 root elements with v-if and v-else', () => {
+    parse('<div v-if="1"></div><div v-else></div>', baseOptions)
+    expect('Component template should contain exactly one root element:\n\n<div v-if="1"></div><div v-else></div>')
+      .not.toHaveBeenWarned()
+  })
+
+  it('warn 2 root elements with v-if', () => {
+    parse('<div v-if="1"></div><div v-if="2"></div>', baseOptions)
+    expect('Component template should contain exactly one root element:\n\n<div v-if="1"></div><div v-if="2"></div>')
+      .toHaveBeenWarned()
+  })
+
+  it('warn 3 root elements with v-if and v-else on first 2', () => {
+    parse('<div v-if="1"></div><div v-else></div><div></div>', baseOptions)
+    expect('Component template should contain exactly one root element:\n\n<div v-if="1"></div><div v-else></div><div></div>')
+      .toHaveBeenWarned()
+  })
+
+  it('warn 2 root elements with v-if and v-else with v-for on 2nd', () => {
+    parse('<div v-if="1"></div><div v-else v-for="i in [1]"></div>', baseOptions)
+    expect('Cannot use v-for on stateful component root element because it renders multiple elements:\n<div v-if="1"></div><div v-else v-for="i in [1]"></div>')
+      .toHaveBeenWarned()
+  })
+
   it('warn <template> as root element', () => {
     parse('<template></template>', baseOptions)
     expect('Cannot use <template> as component root element').toHaveBeenWarned()
@@ -94,8 +123,8 @@ describe('parser', () => {
   it('v-pre directive', () => {
     const ast = parse('<div v-pre id="message1"><p>{{msg}}</p></div>', baseOptions)
     expect(ast.pre).toBe(true)
-    expect(ast.staticAttrs[0].name).toBe('id')
-    expect(ast.staticAttrs[0].value).toBe('"message1"')
+    expect(ast.attrs[0].name).toBe('id')
+    expect(ast.attrs[0].value).toBe('"message1"')
     expect(ast.children[0].children[0].text).toBe('{{msg}}')
   })
 
@@ -219,10 +248,10 @@ describe('parser', () => {
     expect(ast.attrsList[1].value).toBe('field1')
     expect(ast.attrsMap['type']).toBe('text')
     expect(ast.attrsMap['name']).toBe('field1')
-    expect(ast.staticAttrs[0].name).toBe('type')
-    expect(ast.staticAttrs[0].value).toBe('"text"')
-    expect(ast.staticAttrs[1].name).toBe('name')
-    expect(ast.staticAttrs[1].value).toBe('"field1"')
+    expect(ast.attrs[0].name).toBe('type')
+    expect(ast.attrs[0].value).toBe('"text"')
+    expect(ast.attrs[1].name).toBe('name')
+    expect(ast.attrs[1].value).toBe('"field1"')
     expect(ast.props[0].name).toBe('value')
     expect(ast.props[0].value).toBe('msg')
   })
@@ -257,12 +286,12 @@ describe('parser', () => {
     expect(ast1.attrsMap['type']).toBe('text')
     expect(ast1.attrsMap['name']).toBe('field1')
     expect(ast1.attrsMap['value']).toBe('hello world')
-    expect(ast1.staticAttrs[0].name).toBe('type')
-    expect(ast1.staticAttrs[0].value).toBe('"text"')
-    expect(ast1.staticAttrs[1].name).toBe('name')
-    expect(ast1.staticAttrs[1].value).toBe('"field1"')
-    expect(ast1.staticAttrs[2].name).toBe('value')
-    expect(ast1.staticAttrs[2].value).toBe('"hello world"')
+    expect(ast1.attrs[0].name).toBe('type')
+    expect(ast1.attrs[0].value).toBe('"text"')
+    expect(ast1.attrs[1].name).toBe('name')
+    expect(ast1.attrs[1].value).toBe('"field1"')
+    expect(ast1.attrs[2].name).toBe('value')
+    expect(ast1.attrs[2].value).toBe('"hello world"')
     // interpolation warning
     parse('<input type="text" name="field1" value="{{msg}}">', baseOptions)
     expect('Interpolation inside attributes has been deprecated').toHaveBeenWarned()
@@ -291,5 +320,33 @@ describe('parser', () => {
     delete options.mustUseProp
     const ast = parse('<input type="text" name="field1" :value="msg">', options)
     expect(ast.props).toBeUndefined()
+  })
+
+  it('pre/post transforms', () => {
+    const options = extend({}, baseOptions)
+    const spy1 = jasmine.createSpy('preTransform')
+    const spy2 = jasmine.createSpy('postTransform')
+    options.modules = options.modules.concat([{
+      preTransformNode (el) {
+        spy1(el.tag)
+      },
+      postTransformNode (el) {
+        expect(el.attrs.length).toBe(1)
+        spy2(el.tag)
+      }
+    }])
+    parse('<img v-pre src="hi">', options)
+    expect(spy1).toHaveBeenCalledWith('img')
+    expect(spy2).toHaveBeenCalledWith('img')
+  })
+
+  it('preserve whitespace in <pre> tag', function () {
+    const options = extend({}, baseOptions)
+    const ast = parse('<pre><code>  \n<span>hi</span>\n  </code></pre>', options)
+    const code = ast.children[0]
+    expect(code.children[0].type).toBe(3)
+    expect(code.children[0].text).toBe('  \n')
+    expect(code.children[2].type).toBe(3)
+    expect(code.children[2].text).toBe('\n  ')
   })
 })
