@@ -3,14 +3,12 @@
 import { genHandlers } from './events'
 import { baseWarn, pluckModuleFunction } from '../helpers'
 import baseDirectives from '../directives/index'
-import { no } from 'shared/util'
 
 // configurable state
 let warn
 let transforms
 let dataGenFns
 let platformDirectives
-let isPlatformReservedTag
 let staticRenderFns
 let currentOptions
 
@@ -29,9 +27,7 @@ export function generate (
   transforms = pluckModuleFunction(options.modules, 'transformCode')
   dataGenFns = pluckModuleFunction(options.modules, 'genData')
   platformDirectives = options.directives || {}
-  isPlatformReservedTag = options.isReservedTag || no
   const code = ast ? genElement(ast) : '_h("div")'
-  // console.log(code)
   staticRenderFns = prevStaticRenderFns
   return {
     render: `with(this){return ${code}}`,
@@ -44,7 +40,7 @@ function genElement (el: ASTElement): string {
     // hoist static sub-trees out
     el.staticProcessed = true
     staticRenderFns.push(`with(this){return ${genElement(el)}}`)
-    return `_m(${staticRenderFns.length - 1})`
+    return `_m(${staticRenderFns.length - 1}${el.staticInFor ? ',true' : ''})`
   } else if (el.for && !el.forProcessed) {
     return genFor(el)
   } else if (el.if && !el.ifProcessed) {
@@ -60,11 +56,7 @@ function genElement (el: ASTElement): string {
       code = genComponent(el)
     } else {
       const data = genData(el)
-      // if the element is potentially a component,
-      // wrap its children as a thunk.
-      const children = !el.inlineTemplate
-        ? genChildren(el, !isPlatformReservedTag(el.tag) /* asThunk */)
-        : null
+      const children = el.inlineTemplate ? null : genChildren(el)
       code = `_h('${el.tag}'${
         data ? `,${data}` : '' // data
       }${
@@ -74,10 +66,6 @@ function genElement (el: ASTElement): string {
     // module transforms
     for (let i = 0; i < transforms.length; i++) {
       code = transforms[i](el, code)
-    }
-    // check keep-alive
-    if (el.keepAlive) {
-      code = `_h("KeepAlive",{props:{child:${code}}})`
     }
     return code
   }
@@ -217,14 +205,10 @@ function genDirectives (el: ASTElement): string | void {
   }
 }
 
-function genChildren (el: ASTElement, asThunk?: boolean): string | void {
-  if (!el.children.length) {
-    return
+function genChildren (el: ASTElement): string | void {
+  if (el.children.length) {
+    return '[' + el.children.map(genNode).join(',') + ']'
   }
-  const code = '[' + el.children.map(genNode).join(',') + ']'
-  return asThunk
-    ? `function(){return ${code}}`
-    : code
 }
 
 function genNode (node: ASTNode) {
@@ -250,7 +234,7 @@ function genSlot (el: ASTElement): string {
 }
 
 function genComponent (el: ASTElement): string {
-  const children = genChildren(el, true)
+  const children = genChildren(el)
   return `_h(${el.component},${genData(el)}${
     children ? `,${children}` : ''
   })`

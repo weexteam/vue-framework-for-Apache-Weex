@@ -7,14 +7,15 @@ export default class VNode {
   text: string | void;
   elm: Node | void;
   ns: string | void;
-  context: Component | void;
-  host: ?Component;
+  context: Component | void; // rendered in this component's scope
   key: string | number | void;
   componentOptions: VNodeComponentOptions | void;
-  child: Component | void;
-  parent: VNode | void;
-  raw: ?boolean;
-  isStatic: ?boolean;
+  child: Component | void; // component instance
+  parent: VNode | void; // compoennt placeholder node
+  raw: ?boolean; // contains raw HTML
+  isStatic: ?boolean; // hoisted static node
+  isRootInsert: boolean; // necessary for enter transition check
+  isComment: boolean;
 
   constructor (
     tag?: string,
@@ -24,7 +25,6 @@ export default class VNode {
     elm?: Node,
     ns?: string | void,
     context?: Component,
-    host?: ?Component,
     componentOptions?: VNodeComponentOptions
   ) {
     this.tag = tag
@@ -34,13 +34,14 @@ export default class VNode {
     this.elm = elm
     this.ns = ns
     this.context = context
-    this.host = host
     this.key = data && data.key
     this.componentOptions = componentOptions
     this.child = undefined
     this.parent = undefined
     this.raw = false
     this.isStatic = false
+    this.isRootInsert = true
+    this.isComment = false
     // apply construct hook.
     // this is applied during render, before patch happens.
     // unlike other hooks, this is applied on both client and server.
@@ -51,4 +52,9 @@ export default class VNode {
   }
 }
 
-export const emptyVNode = () => new VNode(undefined, undefined, undefined, '')
+export const emptyVNode = () => {
+  const node = new VNode()
+  node.text = ''
+  node.isComment = true
+  return node
+}

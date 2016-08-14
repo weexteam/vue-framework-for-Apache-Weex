@@ -1,10 +1,9 @@
-declare type VNodeChildren = Array<any> | () => Array<any> | string
+declare type VNodeChildren = Array<?VNode | string | VNodeChildren> | string
 
 declare type VNodeComponentOptions = {
   Ctor: Class<Component>;
   propsData: ?Object;
   listeners: ?Object;
-  parent: Component;
   children: ?VNodeChildren;
   tag?: string;
 }
@@ -28,6 +27,7 @@ declare type VNodeWithData = {
   key: string | number | void;
   parent?: VNodeWithData;
   child?: Component;
+  isRootInsert: boolean;
 }
 
 declare interface VNodeData {

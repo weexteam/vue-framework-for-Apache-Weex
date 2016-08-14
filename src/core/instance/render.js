@@ -10,17 +10,11 @@ import {
 
 import { createElement } from '../vdom/create-element'
 
-export const renderState: {
-  activeInstance: ?Component
-} = {
-  activeInstance: null
-}
-
 export function initRender (vm: Component) {
   vm.$vnode = null // the placeholder node in parent tree
   vm._vnode = null // the root of the child tree
   vm._staticTrees = null
-  vm.$slots = {}
+  vm.$slots = resolveSlots(vm.$options._renderChildren)
   // bind the public createElement fn to this instance
   // so that we get proper render context inside it.
   vm.$createElement = bind(createElement, vm)
@@ -36,15 +30,9 @@ export function renderMixin (Vue: Class<Component>) {
 
   Vue.prototype._render = function (): VNode {
     const vm: Component = this
-
-    // set current active instance
-    const prev = renderState.activeInstance
-    renderState.activeInstance = vm
-
     const {
       render,
       staticRenderFns,
-      _renderChildren,
       _parentVnode
     } = vm.$options
 
@@ -54,9 +42,6 @@ export function renderMixin (Vue: Class<Component>) {
     // set parent vnode. this allows render functions to have access
     // to the data on the placeholder node.
     vm.$vnode = _parentVnode
-    // resolve slots. becaues slots are rendered in parent scope,
-    // we set the activeInstance to parent.
-    vm.$slots = resolveSlots(_renderChildren)
     // render self
     let vnode
     try {
@@ -91,8 +76,6 @@ export function renderMixin (Vue: Class<Component>) {
     }
     // set parent
     vnode.parent = _parentVnode
-    // restore render state
-    renderState.activeInstance = prev
     return vnode
   }
 
@@ -104,13 +87,26 @@ export function renderMixin (Vue: Class<Component>) {
   Vue.prototype._n = toNumber
 
   // render static tree by index
-  Vue.prototype._m = function renderStatic (index?: number): Object | void {
+  Vue.prototype._m = function renderStatic (
+    index: number,
+    isInFor?: boolean
+  ): VNode | VNodeChildren {
     let tree = this._staticTrees[index]
-    if (!tree) {
-      tree = this._staticTrees[index] = this.$options.staticRenderFns[index].call(
-        this._renderProxy
-      )
+    // if has already-rendered static tree and not inside v-for,
+    // we can reuse the same tree by indentity.
+    if (tree && !isInFor) {
+      return tree
+    }
+    // otherwise, render a fresh tree.
+    tree = this._staticTrees[index] = this.$options.staticRenderFns[index].call(this._renderProxy)
+    if (Array.isArray(tree)) {
+      for (let i = 0; i < tree.length; i++) {
+        tree[i].isStatic = true
+        tree[i].key = `__static__${index}_${i}`
+      }
+    } else {
       tree.isStatic = true
+      tree.key = `__static__${index}`
     }
     return tree
   }
@@ -163,12 +159,16 @@ export function renderMixin (Vue: Class<Component>) {
         if (Array.isArray(value)) {
           value = toObject(value)
         }
-        const data = vnode.data
+        const data: any = vnode.data
         for (const key in value) {
-          const hash = asProp || config.mustUseProp(key)
-            ? data.domProps || (data.domProps = {})
-            : data.attrs || (data.attrs = {})
-          hash[key] = value[key]
+          if (key === 'class' || key === 'style') {
+            data[key] = value[key]
+          } else {
+            const hash = asProp || config.mustUseProp(key)
+              ? data.domProps || (data.domProps = {})
+              : data.attrs || (data.attrs = {})
+            hash[key] = value[key]
+          }
         }
       }
     }
@@ -180,7 +180,9 @@ export function renderMixin (Vue: Class<Component>) {
   }
 }
 
-export function resolveSlots (renderChildren: any): Object {
+export function resolveSlots (
+  renderChildren: ?VNodeChildren
+): { [key: string]: Array<VNode> } {
   const slots = {}
   if (!renderChildren) {
     return slots

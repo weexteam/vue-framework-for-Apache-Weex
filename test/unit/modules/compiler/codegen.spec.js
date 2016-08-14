@@ -2,7 +2,6 @@ import { parse } from 'compiler/parser/index'
 import { optimize } from 'compiler/optimizer'
 import { generate } from 'compiler/codegen'
 import { isObject } from 'shared/util'
-import directives from 'web/compiler/directives/index'
 import { isReservedTag } from 'web/util/index'
 import { baseOptions } from 'web/compiler/index'
 
@@ -260,7 +259,7 @@ describe('codegen', () => {
   it('generate component', () => {
     assertCodegen(
       '<my-component name="mycomponent1" :msg="msg" @notify="onNotify"><div>hi</div></my-component>',
-      `with(this){return _h('my-component',{attrs:{"name":"mycomponent1","msg":msg},on:{"notify":onNotify}},function(){return [_m(0)]})}`,
+      `with(this){return _h('my-component',{attrs:{"name":"mycomponent1","msg":msg},on:{"notify":onNotify}},[_m(0)])}`,
       [`with(this){return _h('div',["hi"])}`]
     )
   })
@@ -268,7 +267,7 @@ describe('codegen', () => {
   it('generate svg component with children', () => {
     assertCodegen(
       '<svg><my-comp><circle :r="10"></circle></my-comp></svg>',
-      `with(this){return _h('svg',[_h('my-comp',function(){return [_h('circle',{attrs:{"r":10}})]})])}`
+      `with(this){return _h('svg',[_h('my-comp',[_h('circle',{attrs:{"r":10}})])])}`
     )
   })
 
@@ -297,6 +296,14 @@ describe('codegen', () => {
     expect('Inline-template components must have exactly one child element.').toHaveBeenWarned()
   })
 
+  it('generate static trees inside v-for', () => {
+    assertCodegen(
+      `<div><div v-for="i in 10"><span></span></div></div>`,
+      `with(this){return _h('div',[(10)&&_l((10),function(i){return _h('div',[_m(0,true)])})])}`,
+      [`with(this){return _h('span')}`]
+    )
+  })
+
   it('not specified ast type', () => {
     const res = generate(null, baseOptions)
     expect(res.render).toBe(`with(this){return _h("div")}`)
@@ -308,17 +315,6 @@ describe('codegen', () => {
       '<p v-if="show">hello world</p>',
       `with(this){return (show)?_h('p',["hello world"]):void 0}`,
       { isReservedTag }
-    )
-  })
-
-  it('not specified isReservedTag option', () => {
-    // this causes all tags to be treated as components,
-    // thus all children are wrapped in thunks.
-    assertCodegen(
-      '<div><p>hello world</p></div>',
-      `with(this){return _m(0)}`,
-      [`with(this){return _h('div',function(){return [_h('p',function(){return ["hello world"]})]})}`],
-      { directives }
     )
   })
 })

@@ -85,7 +85,7 @@ export function parse (
         element.ns = ns
       }
 
-      if (isForbiddenTag(element)) {
+      if (process.env.VUE_ENV !== 'server' && isForbiddenTag(element)) {
         element.forbidden = true
         process.env.NODE_ENV !== 'production' && warn(
           'Templates should only be responsbile for mapping the state to the ' +
@@ -344,9 +344,6 @@ function processComponent (el) {
   let binding
   if ((binding = getBindingAttr(el, 'is'))) {
     el.component = binding
-  }
-  if (getAndRemoveAttr(el, 'keep-alive') != null) {
-    el.keepAlive = true
   }
   if (getAndRemoveAttr(el, 'inline-template') != null) {
     el.inlineTemplate = true
