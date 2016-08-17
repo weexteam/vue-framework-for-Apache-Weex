@@ -144,4 +144,33 @@ describe('Directive v-if', () => {
       expect(vm.$el.innerHTML.trim()).toBe('<span>bye</span><span>hello</span>')
     }).then(done)
   })
+
+  it('should work properly on component root', done => {
+    const vm = new Vue({
+      template: `
+        <div>
+          <test class="test"></test>
+        </div>
+      `,
+      components: {
+        test: {
+          data () {
+            return { ok: true }
+          },
+          template: '<div v-if="ok" id="ok" class="inner">test</div>'
+        }
+      }
+    }).$mount()
+    expect(vm.$el.children[0].id).toBe('ok')
+    expect(vm.$el.children[0].className).toBe('inner test')
+    vm.$children[0].ok = false
+    waitForUpdate(() => {
+      // attrs / class modules should not attempt to patch the comment node
+      expect(vm.$el.innerHTML).toBe('<!---->')
+      vm.$children[0].ok = true
+    }).then(() => {
+      expect(vm.$el.children[0].id).toBe('ok')
+      expect(vm.$el.children[0].className).toBe('inner test')
+    }).then(done)
+  })
 })

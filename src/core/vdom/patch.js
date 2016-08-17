@@ -1,8 +1,13 @@
 /**
- * Virtual DOM implementation based on Snabbdom by
+ * Virtual DOM patching algorithm based on Snabbdom by
  * Simon Friis Vindum (@paldepind)
- * with custom modifications.
+ * Licensed under the MIT License
+ * https://github.com/paldepind/snabbdom/blob/master/LICENSE
  *
+ * modified by Evan You (@yyx990803)
+ *
+
+/*
  * Not type-checking this because this file is perf-critical and the cost
  * of making flow understand it is not worth it.
  */
@@ -11,6 +16,7 @@ import config from '../config'
 import VNode from './vnode'
 import { isPrimitive, _toString, warn } from '../util/index'
 import { activeInstance } from '../instance/lifecycle'
+import { registerRef } from './modules/ref'
 
 const emptyData = {}
 const emptyNode = new VNode('', emptyData, [])
@@ -129,6 +135,13 @@ export function createPatchFunction (backend) {
     return vnode.elm
   }
 
+  function isPatchable (vnode) {
+    while (vnode.child) {
+      vnode = vnode.child._vnode
+    }
+    return isDef(vnode.tag)
+  }
+
   function invokeCreateHooks (vnode, insertedVnodeQueue) {
     for (let i = 0; i < cbs.create.length; ++i) {
       cbs.create[i](emptyNode, vnode)
@@ -145,8 +158,16 @@ export function createPatchFunction (backend) {
       insertedVnodeQueue.push.apply(insertedVnodeQueue, vnode.data.pendingInsert)
     }
     vnode.elm = vnode.child.$el
-    invokeCreateHooks(vnode, insertedVnodeQueue)
-    setScope(vnode)
+    if (isPatchable(vnode)) {
+      invokeCreateHooks(vnode, insertedVnodeQueue)
+      setScope(vnode)
+    } else {
+      // empty component root.
+      // skip all element-related modules except for ref (#3455)
+      registerRef(vnode)
+      // make sure to invoke the insert hook
+      insertedVnodeQueue.push(vnode)
+    }
   }
 
   // set scope id attribute for scoped CSS.
@@ -320,7 +341,7 @@ export function createPatchFunction (backend) {
     const elm = vnode.elm = oldVnode.elm
     const oldCh = oldVnode.children
     const ch = vnode.children
-    if (hasData) {
+    if (hasData && isPatchable(vnode)) {
       for (i = 0; i < cbs.update.length; ++i) cbs.update[i](oldVnode, vnode)
       if (isDef(hook) && isDef(i = hook.update)) i(oldVnode, vnode)
     }
@@ -465,8 +486,10 @@ export function createPatchFunction (backend) {
         // update parent placeholder node element.
         if (vnode.parent) {
           vnode.parent.elm = vnode.elm
-          for (let i = 0; i < cbs.create.length; ++i) {
-            cbs.create[i](emptyNode, vnode.parent)
+          if (isPatchable(vnode)) {
+            for (let i = 0; i < cbs.create.length; ++i) {
+              cbs.create[i](emptyNode, vnode.parent)
+            }
           }
         }
 
