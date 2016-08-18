@@ -15,7 +15,7 @@ export function createTextNode (text) {
 }
 
 export function insertBefore (node, target, before) {
-  console.log(`inserting: ${target.type} to ${node.type}`)
+  // console.log(`inserting: ${target.type} to ${node.type}`)
   if (target.nodeType === 3) {
     if (node.type === 'text') {
       node.setAttr('value', target.text)
@@ -31,7 +31,7 @@ export function removeChild (node, child) {
 }
 
 export function appendChild (node, child) {
-  console.log(`appending: ${child.type} to ${node.type}`)
+  // console.log(`appending: ${child.type} to ${node.type}`)
   if (child.nodeType === 3) {
     if (node.type === 'text') {
       node.setAttr('value', child.text)

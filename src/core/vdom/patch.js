@@ -118,6 +118,9 @@ export function createPatchFunction (backend) {
         : nodeOps.createElement(tag)
       setScope(vnode)
 
+      if (isDef(data)) {
+        invokeCreateHooks(vnode, insertedVnodeQueue)
+      }
       append(parentElm, elm, referenceNode)
 
       if (Array.isArray(children)) {
@@ -126,9 +129,6 @@ export function createPatchFunction (backend) {
         }
       } else if (isPrimitive(vnode.text)) {
         nodeOps.appendChild(elm, nodeOps.createTextNode(vnode.text))
-      }
-      if (isDef(data)) {
-        invokeCreateHooks(vnode, insertedVnodeQueue)
       }
     } else if (vnode.isComment) {
       elm = vnode.elm = nodeOps.createComment(vnode.text)
