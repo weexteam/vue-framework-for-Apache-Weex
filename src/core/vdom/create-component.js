@@ -57,24 +57,7 @@ export function createComponent (
 
   // functional component
   if (Ctor.options.functional) {
-    const props = {}
-    const propOptions = Ctor.options.props
-    if (propOptions) {
-      Object.keys(propOptions).forEach(key => {
-        props[key] = validateProp(key, propOptions, propsData)
-      })
-    }
-    return Ctor.options.render.call(
-      null,
-      context.$createElement,
-      {
-        props,
-        data,
-        parent: context,
-        children: normalizeChildren(children),
-        slots: () => resolveSlots(children)
-      }
-    )
+    return createFunctionalComponent(Ctor, propsData, data, context, children)
   }
 
   // extract listeners, since these needs to be treated as
@@ -100,6 +83,33 @@ export function createComponent (
     { Ctor, propsData, listeners, tag, children }
   )
   return vnode
+}
+
+function createFunctionalComponent (
+  Ctor: Class<Component>,
+  propsData: ?Object,
+  data: VNodeData,
+  context: Component,
+  children?: VNodeChildren
+): VNode | void {
+  const props = {}
+  const propOptions = Ctor.options.props
+  if (propOptions) {
+    for (const key in propOptions) {
+      props[key] = validateProp(key, propOptions, propsData)
+    }
+  }
+  return Ctor.options.render.call(
+    null,
+    context.$createElement,
+    {
+      props,
+      data,
+      parent: context,
+      children: normalizeChildren(children),
+      slots: () => resolveSlots(children)
+    }
+  )
 }
 
 export function createComponentInstanceForVnode (
