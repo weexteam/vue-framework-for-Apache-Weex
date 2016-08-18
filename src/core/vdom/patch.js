@@ -81,12 +81,12 @@ export function createPatchFunction (backend) {
     nodeOps.removeChild(parent, el)
   }
 
-  function createElm (vnode, insertedVnodeQueue, nested) {
+  function createElm (vnode, insertedVnodeQueue, parentElm, referenceNode, nested) {
     let i, elm
     const data = vnode.data
     vnode.isRootInsert = !nested
     if (isDef(data)) {
-      if (isDef(i = data.hook) && isDef(i = i.init)) i(vnode)
+      if (isDef(i = data.hook) && isDef(i = i.init)) i(vnode, false, parentElm, referenceNode)
       // after calling the init hook, if the vnode is a child component
       // it should've created a child instance and mounted it. the child
       // component also has set the placeholder vnode's elm.
@@ -117,9 +117,12 @@ export function createPatchFunction (backend) {
         ? nodeOps.createElementNS(vnode.ns, tag)
         : nodeOps.createElement(tag)
       setScope(vnode)
+
+      append(parentElm, elm, referenceNode)
+
       if (Array.isArray(children)) {
         for (i = 0; i < children.length; ++i) {
-          nodeOps.appendChild(elm, createElm(children[i], insertedVnodeQueue, true))
+          createElm(children[i], insertedVnodeQueue, elm, null, true)
         }
       } else if (isPrimitive(vnode.text)) {
         nodeOps.appendChild(elm, nodeOps.createTextNode(vnode.text))
@@ -129,10 +132,23 @@ export function createPatchFunction (backend) {
       }
     } else if (vnode.isComment) {
       elm = vnode.elm = nodeOps.createComment(vnode.text)
+      append(parentElm, elm, referenceNode)
     } else {
       elm = vnode.elm = nodeOps.createTextNode(vnode.text)
+      append(parentElm, elm, referenceNode)
     }
     return vnode.elm
+  }
+
+  function append (parent, elm, ref) {
+    if (!parent) {
+      return
+    }
+    if (!ref) {
+      nodeOps.appendChild(parent, elm)
+    } else {
+      nodeOps.insertBefore(parent, elm, ref)
+    }
   }
 
   function isPatchable (vnode) {
@@ -187,7 +203,7 @@ export function createPatchFunction (backend) {
 
   function addVnodes (parentElm, before, vnodes, startIdx, endIdx, insertedVnodeQueue) {
     for (; startIdx <= endIdx; ++startIdx) {
-      nodeOps.insertBefore(parentElm, createElm(vnodes[startIdx], insertedVnodeQueue), before)
+      createElm(vnodes[startIdx], insertedVnodeQueue, parentElm, before)
     }
   }
 
@@ -293,7 +309,7 @@ export function createPatchFunction (backend) {
         if (isUndef(oldKeyToIdx)) oldKeyToIdx = createKeyToOldIdx(oldCh, oldStartIdx, oldEndIdx)
         idxInOld = isDef(newStartVnode.key) ? oldKeyToIdx[newStartVnode.key] : null
         if (isUndef(idxInOld)) { // New element
-          nodeOps.insertBefore(parentElm, createElm(newStartVnode, insertedVnodeQueue), oldStartVnode.elm)
+          createElm(newStartVnode, insertedVnodeQueue, parentElm, oldStartVnode.elm)
           newStartVnode = newCh[++newStartIdx]
         } else {
           elmToMove = oldCh[idxInOld]
@@ -306,7 +322,7 @@ export function createPatchFunction (backend) {
           }
           if (elmToMove.tag !== newStartVnode.tag) {
             // same key but different element. treat as new element
-            nodeOps.insertBefore(parentElm, createElm(newStartVnode, insertedVnodeQueue), oldStartVnode.elm)
+            createElm(newStartVnode, insertedVnodeQueue, parentElm, oldStartVnode.elm)
             newStartVnode = newCh[++newStartIdx]
           } else {
             patchVnode(elmToMove, newStartVnode, insertedVnodeQueue)
@@ -437,7 +453,7 @@ export function createPatchFunction (backend) {
     }
   }
 
-  return function patch (oldVnode, vnode, hydrating, removeOnly) {
+  return function patch (oldVnode, vnode, hydrating, removeOnly, parentElm, referenceNode) {
     let elm, parent
     let isInitialPatch = false
     const insertedVnodeQueue = []
@@ -445,7 +461,7 @@ export function createPatchFunction (backend) {
     if (!oldVnode) {
       // empty mount, create new root element
       isInitialPatch = true
-      createElm(vnode, insertedVnodeQueue)
+      createElm(vnode, insertedVnodeQueue, parentElm, referenceNode)
     } else {
       const isRealElement = isDef(oldVnode.nodeType)
       if (!isRealElement && sameVnode(oldVnode, vnode)) {
@@ -480,7 +496,7 @@ export function createPatchFunction (backend) {
         elm = oldVnode.elm
         parent = nodeOps.parentNode(elm)
 
-        createElm(vnode, insertedVnodeQueue)
+        createElm(vnode, insertedVnodeQueue, parent, nodeOps.nextSibling(elm))
 
         // component root element replaced.
         // update parent placeholder node element.
@@ -494,7 +510,6 @@ export function createPatchFunction (backend) {
         }
 
         if (parent !== null) {
-          nodeOps.insertBefore(parent, vnode.elm, nodeOps.nextSibling(elm))
           removeVnodes(parent, [oldVnode], 0, 0)
         } else if (isDef(oldVnode.tag)) {
           invokeDestroyHook(oldVnode)

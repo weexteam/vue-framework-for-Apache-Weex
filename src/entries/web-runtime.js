@@ -31,10 +31,12 @@ Vue.prototype.__patch__ = config._isServer ? noop : patch
 // wrap mount
 Vue.prototype.$mount = function (
   el?: string | Element,
-  hydrating?: boolean
+  hydrating?: boolean,
+  parentElm,
+  referenceNode
 ): Component {
   el = el && !config._isServer ? query(el) : undefined
-  return this._mount(el, hydrating)
+  return this._mount(el, hydrating, parentElm, referenceNode)
 }
 
 // devtools global hook

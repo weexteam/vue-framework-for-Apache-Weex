@@ -135,10 +135,10 @@ export function createComponentInstanceForVnode (
   return new vnodeComponentOptions.Ctor(options)
 }
 
-function init (vnode: VNodeWithData, hydrating: boolean) {
+function init (vnode: VNodeWithData, hydrating: boolean, parentElm, referenceNode) {
   if (!vnode.child || vnode.child._isDestroyed) {
     const child = vnode.child = createComponentInstanceForVnode(vnode, activeInstance)
-    child.$mount(hydrating ? vnode.elm : undefined, hydrating)
+    child.$mount(hydrating ? vnode.elm : undefined, hydrating, parentElm, referenceNode)
   }
 }
 

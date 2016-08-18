@@ -21,9 +21,11 @@ Vue.prototype.__patch__ = config._isServer ? noop : patch
 // wrap mount
 Vue.prototype.$mount = function (
   el?: string | Element,
-  hydrating?: boolean
+  hydrating?: boolean,
+  parentElm,
+  referenceNode
 ): Component {
-  return this._mount(el && query(el, this.$document), hydrating)
+  return this._mount(el && query(el, this.$document), hydrating, parentElm, referenceNode)
 }
 
 export default Vue
