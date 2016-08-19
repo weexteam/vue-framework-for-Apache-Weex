@@ -18,6 +18,8 @@ import { isPrimitive, _toString, warn } from '../util/index'
 import { activeInstance } from '../instance/lifecycle'
 import { registerRef } from './modules/ref'
 
+const LONG_LIST_THRESHOLD = 10
+
 const emptyData = {}
 const emptyNode = new VNode('', emptyData, [])
 const hooks = ['create', 'update', 'postpatch', 'remove', 'destroy']
@@ -118,10 +120,21 @@ export function createPatchFunction (backend) {
         : nodeOps.createElement(tag)
       setScope(vnode)
 
-      if (isDef(data)) {
-        invokeCreateHooks(vnode, insertedVnodeQueue)
+      // Detect long lists:
+      // If the list is longer than a certain threshold, it may take to long
+      // to compute the whole tree before being able to send messages to the
+      // native client. When we detect such a case, we will append the parent
+      // element FIRST, so that each child can be drawn as soon as possible
+      // by the native client, resulting in faster initial render and better
+      // perceived UX.
+      const isLongList = Array.isArray(children) && children.length >= LONG_LIST_THRESHOLD
+
+      if (isLongList) {
+        if (isDef(data)) {
+          invokeCreateHooks(vnode, insertedVnodeQueue)
+        }
+        append(parentElm, elm, referenceNode)
       }
-      append(parentElm, elm, referenceNode)
 
       if (Array.isArray(children)) {
         for (i = 0; i < children.length; ++i) {
@@ -129,6 +142,13 @@ export function createPatchFunction (backend) {
         }
       } else if (isPrimitive(vnode.text)) {
         nodeOps.appendChild(elm, nodeOps.createTextNode(vnode.text))
+      }
+
+      if (!isLongList) {
+        if (isDef(data)) {
+          invokeCreateHooks(vnode, insertedVnodeQueue)
+        }
+        append(parentElm, elm, referenceNode)
       }
     } else if (vnode.isComment) {
       elm = vnode.elm = nodeOps.createComment(vnode.text)
