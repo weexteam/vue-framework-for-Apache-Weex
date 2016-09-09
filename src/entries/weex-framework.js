@@ -174,16 +174,9 @@ function genModuleGetter (instanceId) {
     for (const methodName in nativeModule) {
       const defaultArgs = nativeModule[methodName]
       output[methodName] = (...args) => {
-        let finalArgs = []
-        if (defaultArgs === true) {
-          finalArgs = args
-        }
-        else {
-          defaultArgs.forEach((arg, index) => {
-            const value = args[index]
-            finalArgs[index] = normalize(value, instance)
-          })
-        }
+        let finalArgs = args.map(value => {
+          return normalize(value, instance)
+        })
         renderer.sendTasks(instanceId + '', [{ module: name, method: methodName, args: finalArgs }], -1)
       }
     }
