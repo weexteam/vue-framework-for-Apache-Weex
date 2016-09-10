@@ -26,13 +26,27 @@ export function createInstance (
     callbackId: 1
   }
 
-  const start = new Function('Vue', '__weex_require_module__', appCode)
+  const start = new Function(
+    'Vue',
+    '__weex_require_module__',
+    'setTimeout',
+    'setInterval',
+    'clearTimeout',
+    'clearInterval',
+    appCode)
   const subVue = Vue.extend({});
   ['util', 'set', 'del', 'nextTick', 'use'].forEach(name => {
     subVue[name] = Vue[name]
   })
 
-  start(subVue, genModuleGetter(instanceId))
+  const moduleGetter = genModuleGetter(instanceId)
+  const timerAPIs = getInstanceTimer(instanceId, moduleGetter)
+  start(
+    subVue, moduleGetter,
+    timerAPIs.setTimeout,
+    timerAPIs.setInterval,
+    timerAPIs.clearTimeout,
+    timerAPIs.clearInterval)
   renderer.sendTasks(instanceId + '', [{ module: 'dom', method: 'createFinish', args: [] }], -1)
 }
 
@@ -174,21 +188,42 @@ function genModuleGetter (instanceId) {
     for (const methodName in nativeModule) {
       const defaultArgs = nativeModule[methodName]
       output[methodName] = (...args) => {
-        let finalArgs = []
-        if (defaultArgs === true) {
-          finalArgs = args
-        }
-        else {
-          defaultArgs.forEach((arg, index) => {
-            const value = args[index]
-            finalArgs[index] = normalize(value, instance)
-          })
-        }
+        let finalArgs = args.map(value => {
+          return normalize(value, instance)
+        })
         renderer.sendTasks(instanceId + '', [{ module: name, method: methodName, args: finalArgs }], -1)
       }
     }
     return output
   }
+}
+
+function getInstanceTimer (instanceId, moduleGetter) {
+  const instance = instances[instanceId]
+  const timer = moduleGetter('timer')
+  const timerAPIs = {
+    setTimeout: (...args) => {
+      const handler = function () {
+        args[0](...args.slice(2))
+      }
+      timer.setTimeout(handler, args[1])
+      return instance.callbackId.toString()
+    },
+    setInterval: (...args) => {
+      const handler = function () {
+        args[0](...args.slice(2))
+      }
+      timer.setInterval(handler, args[1])
+      return instance.callbackId.toString()
+    },
+    clearTimeout: (n) => {
+      timer.clearTimeout(n)
+    },
+    clearInterval: (n) => {
+      timer.clearInterval(n)
+    }
+  }
+  return timerAPIs
 }
 
 function normalize (v, instance) {
