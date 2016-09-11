@@ -1,3 +1,5 @@
+/* @flow */
+
 import * as nodeOps from 'weex/runtime/node-ops'
 import { createPatchFunction } from 'core/vdom/patch'
 import baseModules from 'core/vdom/modules/index'

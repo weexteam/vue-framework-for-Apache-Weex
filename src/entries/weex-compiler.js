@@ -1,3 +1,5 @@
+/* @flow */
+
 import { extend } from 'shared/util'
 import { compile as baseCompile, baseOptions } from 'weex/compiler/index'
 import { detectErrors } from 'compiler/error-detector'

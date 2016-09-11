@@ -1,31 +1,34 @@
+/* @flow */
+
 import { extend } from 'shared/util'
 
-function updateClass (oldVnode, vnode) {
+function updateClass (oldVnode: VNodeWithData, vnode: VNodeWithData) {
   const el = vnode.elm
   const ctx = vnode.context
 
-  let data = vnode.data
-  const staticClass = data.staticClass
-  const klass = data.class
-  if (!staticClass && !klass) {
+  const data: VNodeData = vnode.data
+  const oldData: VNodeData = oldVnode.data
+  if (!data.staticClass && !data.class &&
+      (!oldData || (!oldData.staticClass && !oldData.class))) {
     return
   }
 
   const classList = []
-  if (staticClass) {
-    classList.push.apply(classList, staticClass)
+  if (data.staticClass) {
+    classList.push.apply(classList, data.staticClass)
   }
-  if (klass) {
-    classList.push.apply(classList, klass)
+  if (data.class) {
+    classList.push.apply(classList, data.class)
   }
 
+  // @todo: remove old class Style
   const style = getStyle(classList, ctx)
   for (const key in style) {
     el.setStyle(key, style[key])
   }
 }
 
-function getStyle (classList, ctx) {
+function getStyle (classList: Array<string>, ctx: Component): Object {
   const stylesheet = ctx.$options.style || {}
   const result = {}
   classList.forEach(name => {

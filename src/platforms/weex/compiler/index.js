@@ -6,7 +6,10 @@ import { compile as baseCompile } from 'compiler/index'
 import { detectErrors } from 'compiler/error-detector'
 import modules from './modules/index'
 import directives from './directives/index'
-import { isReservedTag, isUnaryTag, mustUseProp, getTagNamespace } from '../util/index'
+import {
+  isReservedTag, isUnaryTag,
+  mustUseProp, getTagNamespace
+} from '../util/index'
 
 const cache: { [key: string]: CompiledFunctionResult } = Object.create(null)
 
@@ -20,6 +23,7 @@ export const baseOptions: CompilerOptions = {
   isUnaryTag,
   mustUseProp,
   getTagNamespace
+
 }
 
 export function compile (
@@ -35,7 +39,7 @@ export function compile (
 export function compileToFunctions (
   template: string,
   options?: CompilerOptions,
-  vm: Component
+  vm?: Component
 ): CompiledFunctionResult {
   const _warn = (options && options.warn) || warn
   // detect possible CSP restriction

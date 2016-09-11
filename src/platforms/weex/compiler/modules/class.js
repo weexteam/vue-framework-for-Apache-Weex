@@ -1,3 +1,5 @@
+/* @flow */
+
 import { parseText } from 'compiler/parser/text-parser'
 import {
   getAndRemoveAttr,
@@ -5,7 +7,12 @@ import {
   baseWarn
 } from 'compiler/helpers'
 
-function transformNode (el, options) {
+type StaticClassResult = {
+  dynamic: boolean,
+  classResult: string
+}
+
+function transformNode (el: ASTElement, options: CompilerOptions) {
   const warn = options.warn || baseWarn
   const staticClass = getAndRemoveAttr(el, 'class')
   const { dynamic, classResult } = parseStaticClass(staticClass, options)
@@ -29,7 +36,7 @@ function transformNode (el, options) {
   }
 }
 
-function genData (el) {
+function genData (el: ASTElement): string {
   let data = ''
   if (el.staticClass) {
     data += `staticClass:${el.staticClass},`
@@ -40,7 +47,7 @@ function genData (el) {
   return data
 }
 
-function parseStaticClass (staticClass, options) {
+function parseStaticClass (staticClass?: string, options: CompilerOptions): StaticClassResult {
   // "a b c" -> ["a", "b", "c"] => staticClass: ["a", "b", "c"]
   // "a {{x}} c" -> ["a", x, "c"] => classBinding: '["a", x, "c"]'
   let dynamic = false

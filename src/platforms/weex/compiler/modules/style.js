@@ -1,3 +1,5 @@
+/* @flow */
+
 import { cached, camelize } from 'shared/util'
 import { parseText } from 'compiler/parser/text-parser'
 import {
@@ -5,11 +7,14 @@ import {
   getBindingAttr
 } from 'compiler/helpers'
 
-const normalize = cached(function (prop) {
-  return camelize(prop)
-})
+type StaticStyleResult = {
+  dynamic: boolean,
+  styleResult: string
+}
 
-function transformNode (el, options) {
+const normalize = cached(camelize)
+
+function transformNode (el: ASTElement, options: CompilerOptions) {
   const staticStyle = getAndRemoveAttr(el, 'style')
   const { dynamic, styleResult } = parseStaticStyle(staticStyle, options)
   if (!dynamic && styleResult) {
@@ -23,7 +28,7 @@ function transformNode (el, options) {
   }
 }
 
-function genData (el) {
+function genData (el: ASTElement): string {
   let data = ''
   if (el.staticStyle) {
     data += `staticStyle:${el.staticStyle},`
@@ -34,7 +39,7 @@ function genData (el) {
   return data
 }
 
-function parseStaticStyle (staticStyle, options) {
+function parseStaticStyle (staticStyle?: string, options: CompilerOptions): StaticStyleResult {
   // "width: 200px; height: 200px;" -> {width: 200, height: 200}
   // "width: 200px; height: {{y}}" -> {width: 200, height: y}
   let dynamic = false
