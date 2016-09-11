@@ -5,7 +5,7 @@
 
 import { warn } from 'core/util/index'
 import { camelize, extend } from 'shared/util'
-import { getRealChild, mergeVNodeHook } from 'core/vdom/helpers'
+import { mergeVNodeHook, getFirstComponentChild } from 'core/vdom/helpers'
 
 export const transitionProps = {
   name: String,
@@ -19,6 +19,17 @@ export const transitionProps = {
   leaveActiveClass: String,
   appearClass: String,
   appearActiveClass: String
+}
+
+// in case the child is also an abstract component, e.g. <keep-alive>
+// we want to recrusively retrieve the real component to be rendered
+function getRealChild (vnode: ?VNode): ?VNode {
+  const compOptions = vnode && vnode.componentOptions
+  if (compOptions && compOptions.Ctor.options.abstract) {
+    return getRealChild(getFirstComponentChild(compOptions.children))
+  } else {
+    return vnode
+  }
 }
 
 export function extractTransitionData (comp: Component): Object {
@@ -37,6 +48,20 @@ export function extractTransitionData (comp: Component): Object {
   return data
 }
 
+function placeholder (h, rawChild) {
+  return /\d-keep-alive$/.test(rawChild.tag)
+    ? h('keep-alive')
+    : null
+}
+
+function hasParentTransition (vnode) {
+  while ((vnode = vnode.parent)) {
+    if (vnode.data.transition) {
+      return true
+    }
+  }
+}
+
 export default {
   name: 'transition',
   props: transitionProps,
@@ -49,6 +74,7 @@ export default {
 
     // filter out text nodes (possible whitespaces)
     children = children.filter(c => c.tag)
+    /* istanbul ignore if */
     if (!children.length) {
       return
     }
@@ -77,7 +103,7 @@ export default {
 
     // if this is a component root node and the component's
     // parent container node also has transition, skip.
-    if (this.$vnode.parent && this.$vnode.parent.data.transition) {
+    if (hasParentTransition(this.$vnode)) {
       return rawChild
     }
 
@@ -85,11 +111,26 @@ export default {
     // use getRealChild() to ignore abstract components e.g. keep-alive
     const child = getRealChild(rawChild)
     /* istanbul ignore if */
-    if (!child) return
-    child.key = child.key || `__v${child.tag + this._uid}__`
+    if (!child) {
+      return rawChild
+    }
+
+    if (this._leaving) {
+      return placeholder(h, rawChild)
+    }
+
+    child.key = child.key == null
+      ? `__v${child.tag + this._uid}__`
+      : child.key
     const data = (child.data || (child.data = {})).transition = extractTransitionData(this)
     const oldRawChild = this._vnode
     const oldChild: any = getRealChild(oldRawChild)
+
+    // mark v-show
+    // so that the transition module can hand over the control to the directive
+    if (child.data.directives && child.data.directives.some(d => d.name === 'show')) {
+      child.data.show = true
+    }
 
     if (oldChild && oldChild.data && oldChild.key !== child.key) {
       // replace old child transition data with fresh one
@@ -98,16 +139,16 @@ export default {
 
       // handle transition mode
       if (mode === 'out-in') {
-        // return empty node and queue update when leave finishes
+        // return placeholder node and queue update when leave finishes
+        this._leaving = true
         mergeVNodeHook(oldData, 'afterLeave', () => {
+          this._leaving = false
           this.$forceUpdate()
         })
-        return /\d-keep-alive$/.test(rawChild.tag)
-          ? h('keep-alive')
-          : null
+        return placeholder(h, rawChild)
       } else if (mode === 'in-out') {
-        let delayedLeave
-        const performLeave = () => { delayedLeave() }
+        var delayedLeave
+        var performLeave = () => { delayedLeave() }
         mergeVNodeHook(data, 'afterEnter', performLeave)
         mergeVNodeHook(data, 'enterCancelled', performLeave)
         mergeVNodeHook(oldData, 'delayLeave', leave => {

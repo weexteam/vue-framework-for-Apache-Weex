@@ -4,6 +4,7 @@ import { inBrowser } from 'core/util/index'
 import { isIE9 } from 'web/util/index'
 import { cached, extend } from 'shared/util'
 import { mergeVNodeHook } from 'core/vdom/helpers'
+import { activeInstance } from 'core/instance/lifecycle'
 import {
   nextFrame,
   addTransitionClass,
@@ -26,7 +27,7 @@ export function enter (vnode: VNodeWithData) {
   }
 
   /* istanbul ignore if */
-  if (el._enterCb) {
+  if (el._enterCb || el.nodeType !== 1) {
     return
   }
 
@@ -47,8 +48,17 @@ export function enter (vnode: VNodeWithData) {
     appearCancelled
   } = data
 
-  const context = vnode.context.$parent || vnode.context
-  const isAppear = !context._isMounted
+  // activeInstance will always be the <transition> component managing this
+  // transition. One edge case to check is when the <transition> is placed
+  // as the root node of a child component. In that case we need to check
+  // <transition>'s parent for appear check.
+  const transitionNode = activeInstance.$vnode
+  const context = transitionNode && transitionNode.parent
+    ? transitionNode.parent.context
+    : activeInstance
+
+  const isAppear = !context._isMounted || !vnode.isRootInsert
+
   if (isAppear && !appear && appear !== '') {
     return
   }
@@ -82,15 +92,17 @@ export function enter (vnode: VNodeWithData) {
     el._enterCb = null
   })
 
-  // remove pending leave element on enter by injecting an insert hook
-  mergeVNodeHook(vnode.data.hook || (vnode.data.hook = {}), 'insert', () => {
-    const parent = el.parentNode
-    const pendingNode = parent._pending && parent._pending[vnode.key]
-    if (pendingNode && pendingNode.tag === vnode.tag && pendingNode.elm._leaveCb) {
-      pendingNode.elm._leaveCb()
-    }
-    enterHook && enterHook(el, cb)
-  })
+  if (!vnode.data.show) {
+    // remove pending leave element on enter by injecting an insert hook
+    mergeVNodeHook(vnode.data.hook || (vnode.data.hook = {}), 'insert', () => {
+      const parent = el.parentNode
+      const pendingNode = parent && parent._pending && parent._pending[vnode.key]
+      if (pendingNode && pendingNode.tag === vnode.tag && pendingNode.elm._leaveCb) {
+        pendingNode.elm._leaveCb()
+      }
+      enterHook && enterHook(el, cb)
+    })
+  }
 
   // start enter transition
   beforeEnterHook && beforeEnterHook(el)
@@ -103,6 +115,10 @@ export function enter (vnode: VNodeWithData) {
         whenTransitionEnds(el, type, cb)
       }
     })
+  }
+
+  if (vnode.data.show) {
+    enterHook && enterHook(el, cb)
   }
 
   if (!expectsCSS && !userWantsControl) {
@@ -125,7 +141,7 @@ export function leave (vnode: VNodeWithData, rm: Function) {
   }
 
   /* istanbul ignore if */
-  if (el._leaveCb) {
+  if (el._leaveCb || el.nodeType !== 1) {
     return
   }
 

@@ -42,7 +42,7 @@ export default {
     for (let i = 0; i < rawChildren.length; i++) {
       const c = rawChildren[i]
       if (c.tag) {
-        if (c.key != null) {
+        if (c.key != null && String(c.key).indexOf('__vlist') !== 0) {
           children.push(c)
           map[c.key] = c
           ;(c.data || (c.data = {})).transition = transitionData
@@ -120,8 +120,8 @@ export default {
 
     children.forEach(c => {
       if (c.data.moved) {
-        const el = c.elm
-        const s = el.style
+        var el = c.elm
+        var s = el.style
         addTransitionClass(el, moveClass)
         s.transform = s.WebkitTransform = s.transitionDuration = ''
         el._moveDest = c.data.pos

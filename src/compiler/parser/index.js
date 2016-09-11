@@ -85,10 +85,10 @@ export function parse (
         element.ns = ns
       }
 
-      if (isForbiddenTag(element)) {
+      if (process.env.VUE_ENV !== 'server' && isForbiddenTag(element)) {
         element.forbidden = true
         process.env.NODE_ENV !== 'production' && warn(
-          'Templates should only be responsbile for mapping the state to the ' +
+          'Templates should only be responsible for mapping the state to the ' +
           'UI. Avoid placing tags with side-effects in your templates, such as ' +
           `<${tag}>.`
         )
@@ -265,14 +265,7 @@ function processRef (el) {
   const ref = getBindingAttr(el, 'ref')
   if (ref) {
     el.ref = ref
-    let parent = el
-    while (parent) {
-      if (parent.for !== undefined) {
-        el.refInFor = true
-        break
-      }
-      parent = parent.parent
-    }
+    el.refInFor = checkInFor(el)
   }
 }
 
@@ -345,9 +338,6 @@ function processComponent (el) {
   if ((binding = getBindingAttr(el, 'is'))) {
     el.component = binding
   }
-  if (getAndRemoveAttr(el, 'keep-alive') != null) {
-    el.keepAlive = true
-  }
   if (getAndRemoveAttr(el, 'inline-template') != null) {
     el.inlineTemplate = true
   }
@@ -406,6 +396,17 @@ function processAttrs (el) {
       addAttr(el, name, JSON.stringify(value))
     }
   }
+}
+
+function checkInFor (el: ASTElement): boolean {
+  let parent = el
+  while (parent) {
+    if (parent.for !== undefined) {
+      return true
+    }
+    parent = parent.parent
+  }
+  return false
 }
 
 function parseModifiers (name: string): Object | void {

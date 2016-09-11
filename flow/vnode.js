@@ -1,10 +1,9 @@
-declare type VNodeChildren = Array<any> | () => Array<any> | string
+declare type VNodeChildren = Array<?VNode | string | VNodeChildren> | string
 
 declare type VNodeComponentOptions = {
   Ctor: Class<Component>;
   propsData: ?Object;
   listeners: ?Object;
-  parent: Component;
   children: ?VNodeChildren;
   tag?: string;
 }
@@ -28,6 +27,7 @@ declare type VNodeWithData = {
   key: string | number | void;
   parent?: VNodeWithData;
   child?: Component;
+  isRootInsert: boolean;
 }
 
 declare interface VNodeData {
@@ -38,7 +38,6 @@ declare interface VNodeData {
   staticClass?: string;
   class?: any;
   style?: Array<Object> | Object;
-  show?: true;
   props?: { [key: string]: any };
   attrs?: { [key: string]: string };
   domProps?: { [key: string]: any };
@@ -46,6 +45,7 @@ declare interface VNodeData {
   on?: ?{ [key: string]: Function | Array<Function> };
   nativeOn?: { [key: string]: Function | Array<Function> };
   transition?: Object;
+  show?: boolean; // marker for v-show
   inlineTemplate?: {
     render: Function;
     staticRenderFns: Array<Function>;

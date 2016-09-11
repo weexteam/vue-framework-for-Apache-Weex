@@ -53,7 +53,7 @@ declare type ASTElementHooks = { [key: string]: Array<string> }
 
 declare type ASTDirective = {
   name: string;
-  value: ?string;
+  value: string;
   arg: ?string;
   modifiers: ?{ [key: string]: true };
 }
@@ -70,6 +70,7 @@ declare type ASTElement = {
 
   static?: boolean;
   staticRoot?: boolean;
+  staticInFor?: boolean;
   staticProcessed?: boolean;
   hasBindings?: boolean;
 
@@ -81,7 +82,6 @@ declare type ASTElement = {
   ns?: string;
 
   component?: string;
-  keepAlive?: boolean;
   inlineTemplate?: true;
   transitionMode?: string | null;
   slotName?: ?string;

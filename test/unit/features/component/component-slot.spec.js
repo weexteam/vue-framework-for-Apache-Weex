@@ -313,6 +313,7 @@ describe('Component slot', () => {
     expect('Render function should return a single root node').toHaveBeenWarned()
   })
 
+  // #3254
   it('should not keep slot name when passed further down', () => {
     const vm = new Vue({
       template: '<test><span slot="foo">foo<span></test>',
@@ -321,7 +322,12 @@ describe('Component slot', () => {
           template: '<child><slot name="foo"></slot></child>',
           components: {
             child: {
-              template: '<div><div class="default"><slot></slot></div><div class="named"><slot name="foo"></slot></div></div>'
+              template: `
+                <div>
+                  <div class="default"><slot></slot></div>
+                  <div class="named"><slot name="foo"></slot></div>
+                </div>
+              `
             }
           }
         }
@@ -329,5 +335,191 @@ describe('Component slot', () => {
     }).$mount()
     expect(vm.$el.querySelector('.default').textContent).toBe('foo')
     expect(vm.$el.querySelector('.named').textContent).toBe('')
+  })
+
+  it('should not keep slot name when passed further down (nested)', () => {
+    const vm = new Vue({
+      template: '<wrap><test><span slot="foo">foo<span></test></wrap>',
+      components: {
+        wrap: {
+          template: '<div><slot></slot></div>'
+        },
+        test: {
+          template: '<child><slot name="foo"></slot></child>',
+          components: {
+            child: {
+              template: `
+                <div>
+                  <div class="default"><slot></slot></div>
+                  <div class="named"><slot name="foo"></slot></div>
+                </div>
+              `
+            }
+          }
+        }
+      }
+    }).$mount()
+    expect(vm.$el.querySelector('.default').textContent).toBe('foo')
+    expect(vm.$el.querySelector('.named').textContent).toBe('')
+  })
+
+  it('should not keep slot name when passed further down (functional)', () => {
+    const child = {
+      template: `
+        <div>
+          <div class="default"><slot></slot></div>
+          <div class="named"><slot name="foo"></slot></div>
+        </div>
+      `
+    }
+    const vm = new Vue({
+      template: '<test><span slot="foo">foo<span></test>',
+      components: {
+        test: {
+          functional: true,
+          render (h, ctx) {
+            const slots = ctx.slots()
+            return h(child, slots.foo)
+          }
+        }
+      }
+    }).$mount()
+    expect(vm.$el.querySelector('.default').textContent).toBe('foo')
+    expect(vm.$el.querySelector('.named').textContent).toBe('')
+  })
+
+  // #3400
+  it('named slots should be consistent across re-renders', done => {
+    const vm = new Vue({
+      template: `
+        <comp>
+          <div slot="foo">foo</div>
+        </comp>
+      `,
+      components: {
+        comp: {
+          data () {
+            return { a: 1 }
+          },
+          template: `<div><slot name="foo"></slot>{{ a }}</div>`
+        }
+      }
+    }).$mount()
+    expect(vm.$el.textContent).toBe('foo1')
+    vm.$children[0].a = 2
+    waitForUpdate(() => {
+      expect(vm.$el.textContent).toBe('foo2')
+    }).then(done)
+  })
+
+  // #3437
+  it('should correctly re-create components in slot', done => {
+    const calls = []
+    const vm = new Vue({
+      template: `
+        <comp ref="child">
+          <div slot="foo">
+            <child></child>
+          </div>
+        </comp>
+      `,
+      components: {
+        comp: {
+          data () {
+            return { ok: true }
+          },
+          template: `<div><slot name="foo" v-if="ok"></slot></div>`
+        },
+        child: {
+          template: '<div>child</div>',
+          created () {
+            calls.push(1)
+          },
+          destroyed () {
+            calls.push(2)
+          }
+        }
+      }
+    }).$mount()
+
+    expect(calls).toEqual([1])
+    vm.$refs.child.ok = false
+    waitForUpdate(() => {
+      expect(calls).toEqual([1, 2])
+      vm.$refs.child.ok = true
+    }).then(() => {
+      expect(calls).toEqual([1, 2, 1])
+      vm.$refs.child.ok = false
+    }).then(() => {
+      expect(calls).toEqual([1, 2, 1, 2])
+    }).then(done)
+  })
+
+  it('warn duplicate slots', () => {
+    new Vue({
+      template: `<div>
+        <test>
+          <div>foo</div>
+          <div slot="a">bar</div>
+        </test>
+      </div>`,
+      components: {
+        test: {
+          template: `<div>
+            <slot></slot><slot></slot>
+            <div v-for="i in 3"><slot name="a"></slot></div>
+          </div>`
+        }
+      }
+    }).$mount()
+    expect('Duplicate presense of slot "default"').toHaveBeenWarned()
+    expect('Duplicate presense of slot "a"').toHaveBeenWarned()
+  })
+
+  it('should not warn valid conditional slots', () => {
+    new Vue({
+      template: `<div>
+        <test>
+          <div>foo</div>
+        </test>
+      </div>`,
+      components: {
+        test: {
+          template: `<div>
+            <slot v-if="true"></slot>
+            <slot v-else></slot>
+          </div>`
+        }
+      }
+    }).$mount()
+    expect('Duplicate presense of slot "default"').not.toHaveBeenWarned()
+  })
+
+  // #3518
+  it('events should not break when slot is toggled by v-if', done => {
+    const spy = jasmine.createSpy()
+    const vm = new Vue({
+      template: `<test><div class="click" @click="test">hi</div></test>`,
+      methods: {
+        test: spy
+      },
+      components: {
+        test: {
+          data: () => ({
+            toggle: true
+          }),
+          template: `<div v-if="toggle"><slot></slot></div>`
+        }
+      }
+    }).$mount()
+
+    expect(vm.$el.textContent).toBe('hi')
+    vm.$children[0].toggle = false
+    waitForUpdate(() => {
+      vm.$children[0].toggle = true
+    }).then(() => {
+      triggerEvent(vm.$el.querySelector('.click'), 'click')
+      expect(spy).toHaveBeenCalled()
+    }).then(done)
   })
 })

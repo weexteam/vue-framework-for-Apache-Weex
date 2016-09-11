@@ -4,6 +4,14 @@ import { encodeHTML } from 'entities'
 import { compileToFunctions } from 'web/compiler/index'
 import { createComponentInstanceForVnode } from 'core/vdom/create-component'
 
+let warned = Object.create(null)
+const warnOnce = msg => {
+  if (!warned[msg]) {
+    warned[msg] = true
+    console.warn(`\n\u001b[31m${msg}\u001b[39m\n`)
+  }
+}
+
 const normalizeAsync = (cache, method) => {
   const fn = cache[method]
   if (!fn) {
@@ -18,12 +26,20 @@ const normalizeAsync = (cache, method) => {
 const compilationCache = Object.create(null)
 const normalizeRender = vm => {
   const { render, template } = vm.$options
-  if (!render && template) {
-    const renderFns = (
-      compilationCache[template] ||
-      (compilationCache[template] = compileToFunctions(template))
-    )
-    Object.assign(vm.$options, renderFns)
+  if (!render) {
+    if (template) {
+      const renderFns = (
+        compilationCache[template] ||
+        (compilationCache[template] = compileToFunctions(template))
+      )
+      Object.assign(vm.$options, renderFns)
+    } else {
+      throw new Error(
+        `render function or template not defined in component: ${
+          vm.$options.name || vm.$options._componentTag || 'anonymous'
+        }`
+      )
+    }
   }
 }
 
@@ -40,6 +56,9 @@ export function createRenderFunction (
   const get = cache && normalizeAsync(cache, 'get')
   const has = cache && normalizeAsync(cache, 'has')
 
+  // used to track and apply scope ids
+  let activeInstance: any
+
   function renderNode (
     node: VNode,
     write: Function,
@@ -50,17 +69,18 @@ export function createRenderFunction (
       // check cache hit
       const Ctor = node.componentOptions.Ctor
       const getKey = Ctor.options.serverCacheKey
-      if (getKey && cache) {
-        const key = Ctor.cid + '::' + getKey(node.componentOptions.propsData)
+      const name = Ctor.options.name
+      if (getKey && cache && name) {
+        const key = name + '::' + getKey(node.componentOptions.propsData)
         if (has) {
           has(key, hit => {
-            if (hit) {
+            if (hit && get) {
               get(key, res => write(res, next))
             } else {
               renderComponentWithCache(node, write, next, isRoot, cache, key)
             }
           })
-        } else {
+        } else if (get) {
           get(key, res => {
             if (res) {
               write(res, next)
@@ -70,12 +90,18 @@ export function createRenderFunction (
           })
         }
       } else {
-        if (getKey) {
-          console.error(
+        if (getKey && !cache) {
+          warnOnce(
             `[vue-server-renderer] Component ${
               Ctor.options.name || '(anonymous)'
             } implemented serverCacheKey, ` +
             'but no cache was provided to the renderer.'
+          )
+        }
+        if (getKey && !name) {
+          warnOnce(
+            `[vue-server-renderer] Components that implement "serverCacheKey" ` +
+            `must also define a unique "name" option.`
           )
         }
         renderComponent(node, write, next, isRoot)
@@ -83,6 +109,8 @@ export function createRenderFunction (
     } else {
       if (node.tag) {
         renderElement(node, write, next, isRoot)
+      } else if (node.isComment) {
+        write(`<!--${node.text}-->`, next)
       } else {
         write(node.raw ? node.text : encodeHTML(String(node.text)), next)
       }
@@ -90,11 +118,15 @@ export function createRenderFunction (
   }
 
   function renderComponent (node, write, next, isRoot) {
-    const child = createComponentInstanceForVnode(node)
+    const prevActive = activeInstance
+    const child = activeInstance = createComponentInstanceForVnode(node, activeInstance)
     normalizeRender(child)
     const childNode = child._render()
     childNode.parent = node
-    renderNode(childNode, write, next, isRoot)
+    renderNode(childNode, write, () => {
+      activeInstance = prevActive
+      next()
+    }, isRoot)
   }
 
   function renderComponentWithCache (node, write, next, isRoot, cache, key) {
@@ -177,7 +209,9 @@ export function createRenderFunction (
     }
     // attach scoped CSS ID
     let scopeId
-    if (node.host && (scopeId = node.host.$options._scopeId)) {
+    if (activeInstance &&
+        activeInstance !== node.context &&
+        (scopeId = activeInstance.$options._scopeId)) {
       markup += ` ${scopeId}`
     }
     while (node) {
@@ -194,6 +228,8 @@ export function createRenderFunction (
     write: (text: string, next: Function) => void,
     done: Function
   ) {
+    warned = Object.create(null)
+    activeInstance = component
     normalizeRender(component)
     renderNode(component._render(), write, done, true)
   }

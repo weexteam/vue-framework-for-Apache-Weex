@@ -3,7 +3,7 @@
 import Vue from '../instance/index'
 import VNode from './vnode'
 import { normalizeChildren } from './helpers'
-import { callHook } from '../instance/lifecycle'
+import { activeInstance, callHook } from '../instance/lifecycle'
 import { resolveSlots } from '../instance/render'
 import { warn, isObject, hasOwn, hyphenate, validateProp } from '../util/index'
 
@@ -13,22 +13,10 @@ const hooksToMerge = Object.keys(hooks)
 export function createComponent (
   Ctor: Class<Component> | Function | Object | void,
   data?: VNodeData,
-  parent: Component,
   context: Component,
-  host: ?Component,
   children?: VNodeChildren,
   tag?: string
 ): VNode | void {
-  // ensure children is a thunk
-  if (process.env.NODE_ENV !== 'production' &&
-    children && typeof children !== 'function') {
-    warn(
-      'A component\'s children should be a function that returns the ' +
-      'children array. This allows the component to track the children ' +
-      'dependencies and optimizes re-rendering.'
-    )
-  }
-
   if (!Ctor) {
     return
   }
@@ -39,7 +27,7 @@ export function createComponent (
 
   if (typeof Ctor !== 'function') {
     if (process.env.NODE_ENV !== 'production') {
-      warn(`Invalid Component definition: ${Ctor}`, parent)
+      warn(`Invalid Component definition: ${String(Ctor)}`, context)
     }
     return
   }
@@ -51,9 +39,8 @@ export function createComponent (
     } else {
       Ctor = resolveAsyncComponent(Ctor, () => {
         // it's ok to queue this on every render because
-        // $forceUpdate is buffered. this is only called
-        // if the
-        parent.$forceUpdate()
+        // $forceUpdate is buffered by the scheduler.
+        context.$forceUpdate()
       })
       if (!Ctor) {
         // return nothing if this is indeed an async component
@@ -70,24 +57,7 @@ export function createComponent (
 
   // functional component
   if (Ctor.options.functional) {
-    const props = {}
-    const propOptions = Ctor.options.props
-    if (propOptions) {
-      Object.keys(propOptions).forEach(key => {
-        props[key] = validateProp(key, propOptions, propsData)
-      })
-    }
-    return Ctor.options.render.call(
-      null,
-      parent.$createElement,
-      {
-        props,
-        parent,
-        data,
-        children: () => normalizeChildren(children),
-        slots: () => resolveSlots(children)
-      }
-    )
+    return createFunctionalComponent(Ctor, propsData, data, context, children)
   }
 
   // extract listeners, since these needs to be treated as
@@ -109,19 +79,47 @@ export function createComponent (
   const name = Ctor.options.name || tag
   const vnode = new VNode(
     `vue-component-${Ctor.cid}${name ? `-${name}` : ''}`,
-    data, undefined, undefined, undefined, undefined, context, host,
-    { Ctor, propsData, listeners, parent, tag, children }
+    data, undefined, undefined, undefined, undefined, context,
+    { Ctor, propsData, listeners, tag, children }
   )
   return vnode
 }
 
+function createFunctionalComponent (
+  Ctor: Class<Component>,
+  propsData: ?Object,
+  data: VNodeData,
+  context: Component,
+  children?: VNodeChildren
+): VNode | void {
+  const props = {}
+  const propOptions = Ctor.options.props
+  if (propOptions) {
+    for (const key in propOptions) {
+      props[key] = validateProp(key, propOptions, propsData)
+    }
+  }
+  return Ctor.options.render.call(
+    null,
+    context.$createElement,
+    {
+      props,
+      data,
+      parent: context,
+      children: normalizeChildren(children),
+      slots: () => resolveSlots(children)
+    }
+  )
+}
+
 export function createComponentInstanceForVnode (
-  vnode: any // we know it's MountedComponentVNode but flow doesn't
+  vnode: any, // we know it's MountedComponentVNode but flow doesn't
+  parent: any // activeInstance in lifecycle state
 ): Component {
   const vnodeComponentOptions = vnode.componentOptions
   const options: InternalComponentOptions = {
     _isComponent: true,
-    parent: vnodeComponentOptions.parent,
+    parent,
     propsData: vnodeComponentOptions.propsData,
     _componentTag: vnodeComponentOptions.tag,
     _parentVnode: vnode,
@@ -138,8 +136,8 @@ export function createComponentInstanceForVnode (
 }
 
 function init (vnode: VNodeWithData, hydrating: boolean) {
-  if (!vnode.child) {
-    const child = vnode.child = createComponentInstanceForVnode(vnode)
+  if (!vnode.child || vnode.child._isDestroyed) {
+    const child = vnode.child = createComponentInstanceForVnode(vnode, activeInstance)
     child.$mount(hydrating ? vnode.elm : undefined, hydrating)
   }
 }
@@ -156,10 +154,6 @@ function prepatch (
     vnode, // new parent vnode
     options.children // new children
   )
-  // always update abstract components.
-  if (child.$options.abstract) {
-    child.$forceUpdate()
-  }
 }
 
 function insert (vnode: MountedComponentVNode) {
@@ -195,30 +189,36 @@ function resolveAsyncComponent (
     factory.requested = true
     const cbs = factory.pendingCallbacks = [cb]
     let sync = true
-    factory(
-      // resolve
-      (res: Object | Class<Component>) => {
-        if (isObject(res)) {
-          res = Vue.extend(res)
-        }
-        // cache resolved
-        factory.resolved = res
-        // invoke callbacks only if this is not a synchronous resolve
-        // (async resolves are shimmed as synchronous during SSR)
-        if (!sync) {
-          for (let i = 0, l = cbs.length; i < l; i++) {
-            cbs[i](res)
-          }
-        }
-      },
-      // reject
-      reason => {
-        process.env.NODE_ENV !== 'production' && warn(
-          `Failed to resolve async component: ${factory}` +
-          (reason ? `\nReason: ${reason}` : '')
-        )
+
+    const resolve = (res: Object | Class<Component>) => {
+      if (isObject(res)) {
+        res = Vue.extend(res)
       }
-    )
+      // cache resolved
+      factory.resolved = res
+      // invoke callbacks only if this is not a synchronous resolve
+      // (async resolves are shimmed as synchronous during SSR)
+      if (!sync) {
+        for (let i = 0, l = cbs.length; i < l; i++) {
+          cbs[i](res)
+        }
+      }
+    }
+
+    const reject = reason => {
+      process.env.NODE_ENV !== 'production' && warn(
+        `Failed to resolve async component: ${String(factory)}` +
+        (reason ? `\nReason: ${reason}` : '')
+      )
+    }
+
+    const res = factory(resolve, reject)
+
+    // handle promise
+    if (res && typeof res.then === 'function' && !factory.resolved) {
+      res.then(resolve, reject)
+    }
+
     sync = false
     // return in case resolved synchronously
     return factory.resolved

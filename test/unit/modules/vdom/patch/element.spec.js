@@ -2,7 +2,7 @@ import Vue from 'vue'
 import { patch } from 'web/runtime/patch'
 import VNode from 'core/vdom/vnode'
 
-describe('element', () => {
+describe('vdom patch: element', () => {
   it('should create an element', () => {
     const vnode = new VNode('p', { attrs: { id: '1' }}, [createTextVNode('hello world')])
     const elm = patch(null, vnode)
@@ -53,9 +53,7 @@ describe('element', () => {
   it('should create element with scope attribute', () => {
     const vnode = new VNode('div')
     vnode.context = new Vue({ _scopeId: 'foo' })
-    vnode.host = new Vue({ _scopeId: 'bar' })
     const elm = patch(null, vnode)
     expect(elm.hasAttribute('foo')).toBe(true)
-    expect(elm.hasAttribute('bar')).toBe(true)
   })
 })

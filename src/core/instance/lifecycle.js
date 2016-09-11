@@ -4,6 +4,9 @@ import Watcher from '../observer/watcher'
 import { emptyVNode } from '../vdom/vnode'
 import { observerState } from '../observer/index'
 import { warn, validateProp, remove, noop } from '../util/index'
+import { resolveSlots } from './render'
+
+export let activeInstance: any = null
 
 export function initLifecycle (vm: Component) {
   const options = vm.$options
@@ -76,14 +79,18 @@ export function lifecycleMixin (Vue: Class<Component>) {
       callHook(vm, 'beforeUpdate')
     }
     const prevEl = vm.$el
-    if (!vm._vnode) {
+    const prevActiveInstance = activeInstance
+    activeInstance = vm
+    const prevVnode = vm._vnode
+    vm._vnode = vnode
+    if (!prevVnode) {
       // Vue.prototype.__patch__ is injected in entry points
       // based on the rendering backend used.
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating)
     } else {
-      vm.$el = vm.__patch__(vm._vnode, vnode)
+      vm.$el = vm.__patch__(prevVnode, vnode)
     }
-    vm._vnode = vnode
+    activeInstance = prevActiveInstance
     // update __vue__ reference
     if (prevEl) {
       prevEl.__vue__ = null
@@ -107,6 +114,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
     renderChildren: ?VNodeChildren
   ) {
     const vm: Component = this
+    const hasChildren = !!(vm.$options._renderChildren || renderChildren)
     vm.$options._parentVnode = parentVnode
     vm.$options._renderChildren = renderChildren
     // update props
@@ -131,17 +139,17 @@ export function lifecycleMixin (Vue: Class<Component>) {
       vm.$options._parentListeners = listeners
       vm._updateListeners(listeners, oldListeners)
     }
+    // resolve slots + force update if has children
+    if (hasChildren) {
+      vm.$slots = resolveSlots(renderChildren)
+      vm.$forceUpdate()
+    }
   }
 
   Vue.prototype.$forceUpdate = function () {
     const vm: Component = this
     if (vm._watcher) {
       vm._watcher.update()
-    }
-    if (vm._watchers.length) {
-      for (let i = 0; i < vm._watchers.length; i++) {
-        vm._watchers[i].update(true /* shallow */)
-      }
     }
   }
 

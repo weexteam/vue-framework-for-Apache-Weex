@@ -51,12 +51,13 @@ const reCache = {}
 const ampRE = /&amp;/g
 const ltRE = /&lt;/g
 const gtRE = /&gt;/g
+const quoteRE = /&quot;/g
 
 function decodeAttr (value, shouldDecodeTags) {
   if (shouldDecodeTags) {
     value = value.replace(ltRE, '<').replace(gtRE, '>')
   }
-  return value.replace(ampRE, '&')
+  return value.replace(ampRE, '&').replace(quoteRE, '"')
 }
 
 export function parseHTML (html, options) {
@@ -130,10 +131,10 @@ export function parseHTML (html, options) {
         options.chars(text)
       }
     } else {
-      const stackedTag = lastTag.toLowerCase()
-      const reStackedTag = reCache[stackedTag] || (reCache[stackedTag] = new RegExp('([\\s\\S]*?)(</' + stackedTag + '[^>]*>)', 'i'))
-      let endTagLength = 0
-      const rest = html.replace(reStackedTag, function (all, text, endTag) {
+      var stackedTag = lastTag.toLowerCase()
+      var reStackedTag = reCache[stackedTag] || (reCache[stackedTag] = new RegExp('([\\s\\S]*?)(</' + stackedTag + '[^>]*>)', 'i'))
+      var endTagLength = 0
+      var rest = html.replace(reStackedTag, function (all, text, endTag) {
         endTagLength = endTag.length
         if (stackedTag !== 'script' && stackedTag !== 'style' && stackedTag !== 'noscript') {
           text = text

@@ -72,6 +72,20 @@ describe('SSR: renderToString', () => {
     })
   })
 
+  it('dynamic string style', done => {
+    renderVmWithOptions({
+      template: '<div :style="style"></div>',
+      data: {
+        style: 'color:red'
+      }
+    }, result => {
+      expect(result).toContain(
+        '<div server-rendered="true" style="color:red"></div>'
+      )
+      done()
+    })
+  })
+
   it('text interpolation', done => {
     renderVmWithOptions({
       template: '<div>{{ foo }} side {{ bar }}</div>',
@@ -397,11 +411,11 @@ describe('SSR: renderToString', () => {
   it('v-bind object', done => {
     renderVmWithOptions({
       data: {
-        test: { id: 'a', class: 'b', value: 'c' }
+        test: { id: 'a', class: ['a', 'b'], value: 'c' }
       },
       template: '<input v-bind="test">'
     }, result => {
-      expect(result).toContain('<input id="a" class="b" server-rendered="true" value="c">')
+      expect(result).toContain('<input id="a" server-rendered="true" value="c" class="a b">')
       done()
     })
   })
@@ -482,6 +496,15 @@ describe('SSR: renderToString', () => {
           '<div _v-child _v-parent><p _v-child _v-parent>foo</p></div>' +
         '</div>'
       )
+      done()
+    })
+  })
+
+  it('comment nodes', done => {
+    renderVmWithOptions({
+      template: '<div><transition><div v-if="false"></test></transition></div>'
+    }, result => {
+      expect(result).toContain(`<div server-rendered="true"><!----></div>`)
       done()
     })
   })

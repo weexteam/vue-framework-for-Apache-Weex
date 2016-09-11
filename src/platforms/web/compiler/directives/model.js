@@ -1,5 +1,6 @@
 /* @flow */
 
+import { isIE } from 'web/util/index'
 import { addHandler, addProp, getBindingAttr } from 'compiler/helpers'
 
 let warn
@@ -12,23 +13,20 @@ export default function model (
   warn = _warn
   const value = dir.value
   const modifiers = dir.modifiers
-  if (el.tag === 'select') {
+  const tag = el.tag
+  const type = el.attrsMap.type
+  if (tag === 'select') {
     return genSelect(el, value)
+  } else if (tag === 'input' && type === 'checkbox') {
+    genCheckboxModel(el, value)
+  } else if (tag === 'input' && type === 'radio') {
+    genRadioModel(el, value)
   } else {
-    switch (el.attrsMap.type) {
-      case 'checkbox':
-        genCheckboxModel(el, value)
-        break
-      case 'radio':
-        genRadioModel(el, value)
-        break
-      default:
-        return genDefaultModel(el, value, modifiers)
-    }
+    return genDefaultModel(el, value, modifiers)
   }
 }
 
-function genCheckboxModel (el: ASTElement, value: ?string) {
+function genCheckboxModel (el: ASTElement, value: string) {
   if (process.env.NODE_ENV !== 'production' &&
     el.attrsMap.checked != null) {
     warn(
@@ -37,7 +35,7 @@ function genCheckboxModel (el: ASTElement, value: ?string) {
       'Declare initial values in the component\'s data option instead.'
     )
   }
-  const valueBinding = getBindingAttr(el, 'value')
+  const valueBinding = getBindingAttr(el, 'value') || 'null'
   const trueValueBinding = getBindingAttr(el, 'true-value') || 'true'
   const falseValueBinding = getBindingAttr(el, 'false-value') || 'false'
   addProp(el, 'checked',
@@ -54,11 +52,12 @@ function genCheckboxModel (el: ASTElement, value: ?string) {
           '$$i=$$a.indexOf($$v);' +
       `if($$c){$$i<0&&(${value}=$$a.concat($$v))}` +
       `else{$$i>-1&&(${value}=$$a.slice(0,$$i).concat($$a.slice($$i+1)))}` +
-    `}else{${value}=$$c}`
+    `}else{${value}=$$c}`,
+    null, true
   )
 }
 
-function genRadioModel (el: ASTElement, value: ?string) {
+function genRadioModel (el: ASTElement, value: string) {
   if (process.env.NODE_ENV !== 'production' &&
     el.attrsMap.checked != null) {
     warn(
@@ -67,14 +66,14 @@ function genRadioModel (el: ASTElement, value: ?string) {
       'Declare initial values in the component\'s data option instead.'
     )
   }
-  const valueBinding = getBindingAttr(el, 'value')
+  const valueBinding = getBindingAttr(el, 'value') || 'null'
   addProp(el, 'checked', `(${value})===(${valueBinding})`)
-  addHandler(el, 'change', `${value}=${valueBinding}`)
+  addHandler(el, 'change', `${value}=${valueBinding}`, null, true)
 }
 
 function genDefaultModel (
   el: ASTElement,
-  value: ?string,
+  value: string,
   modifiers: ?Object
 ): ?boolean {
   if (process.env.NODE_ENV !== 'production') {
@@ -96,7 +95,7 @@ function genDefaultModel (
 
   const type = el.attrsMap.type
   const { lazy, number, trim } = modifiers || {}
-  const event = lazy ? 'change' : 'input'
+  const event = lazy || (isIE && type === 'range') ? 'change' : 'input'
   const needCompositionGuard = !lazy && type !== 'range'
   const isNative = el.tag === 'input' || el.tag === 'textarea'
 
@@ -110,14 +109,14 @@ function genDefaultModel (
     code = `if($event.target.composing)return;${code}`
   }
   addProp(el, 'value', isNative ? `_s(${value})` : `(${value})`)
-  addHandler(el, event, code)
+  addHandler(el, event, code, null, true)
   if (needCompositionGuard) {
     // need runtime directive code to help with composition events
     return true
   }
 }
 
-function genSelect (el: ASTElement, value: ?string) {
+function genSelect (el: ASTElement, value: string) {
   if (process.env.NODE_ENV !== 'production') {
     el.children.some(checkOptionWarning)
   }
@@ -125,23 +124,21 @@ function genSelect (el: ASTElement, value: ?string) {
     `.call($event.target.options,function(o){return o.selected})` +
     `.map(function(o){return "_value" in o ? o._value : o.value})` +
     (el.attrsMap.multiple == null ? '[0]' : '')
-  addHandler(el, 'change', code)
+  addHandler(el, 'change', code, null, true)
   // need runtime to help with possible dynamically generated options
   return true
 }
 
-function checkOptionWarning (option: ASTNode) {
+function checkOptionWarning (option: any): boolean {
   if (option.type === 1 &&
     option.tag === 'option' &&
     option.attrsMap.selected != null) {
-    const parentModel = option.parent &&
-      option.parent.type === 1 &&
-      option.parent.attrsMap['v-model']
     warn(
-      `<select v-model="${parentModel}">:\n` +
+      `<select v-model="${option.parent.attrsMap['v-model']}">:\n` +
       'inline selected attributes on <option> will be ignored when using v-model. ' +
       'Declare initial values in the component\'s data option instead.'
     )
     return true
   }
+  return false
 }

@@ -151,7 +151,7 @@ if (!isIE9) {
                 enter,
                 leave
               }
-            }, () => [this.ok ? h('div', { class: 'test' }, 'foo') : undefined])
+            }, this.ok ? [h('div', { class: 'test' }, 'foo')] : undefined)
           ])
         },
         data: { ok: true }
@@ -253,6 +253,79 @@ if (!isIE9) {
       }).then(done)
     })
 
+    it('transition events (v-show)', done => {
+      const onLeaveSpy = jasmine.createSpy('leave')
+      const onEnterSpy = jasmine.createSpy('enter')
+      const beforeLeaveSpy = jasmine.createSpy('beforeLeave')
+      const beforeEnterSpy = jasmine.createSpy('beforeEnter')
+      const afterLeaveSpy = jasmine.createSpy('afterLeave')
+      const afterEnterSpy = jasmine.createSpy('afterEnter')
+
+      const vm = new Vue({
+        template: `
+          <div>
+            <transition
+              name="test"
+              @before-enter="beforeEnter"
+              @enter="enter"
+              @after-enter="afterEnter"
+              @before-leave="beforeLeave"
+              @leave="leave"
+              @after-leave="afterLeave">
+              <div v-show="ok" class="test">foo</div>
+            </transition>
+          </div>
+        `,
+        data: { ok: true },
+        methods: {
+          beforeLeave: (el) => {
+            expect(el).toBe(vm.$el.children[0])
+            expect(el.className).toBe('test')
+            beforeLeaveSpy(el)
+          },
+          leave: (el) => onLeaveSpy(el),
+          afterLeave: (el) => afterLeaveSpy(el),
+          beforeEnter: (el) => {
+            expect(el.className).toBe('test')
+            beforeEnterSpy(el)
+          },
+          enter: (el) => {
+            onEnterSpy(el)
+          },
+          afterEnter: (el) => afterEnterSpy(el)
+        }
+      }).$mount(el)
+
+      // should not apply transition on initial render by default
+      expect(vm.$el.innerHTML).toBe('<div class="test">foo</div>')
+
+      let _el = vm.$el.children[0]
+      vm.ok = false
+      waitForUpdate(() => {
+        expect(beforeLeaveSpy).toHaveBeenCalledWith(_el)
+        expect(onLeaveSpy).toHaveBeenCalledWith(_el)
+        expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(afterLeaveSpy).not.toHaveBeenCalled()
+        expect(vm.$el.children[0].className).toBe('test test-leave-active')
+      }).thenWaitFor(duration + 10).then(() => {
+        expect(afterLeaveSpy).toHaveBeenCalledWith(_el)
+        expect(vm.$el.children[0].style.display).toBe('none')
+        vm.ok = true
+      }).then(() => {
+        _el = vm.$el.children[0]
+        expect(beforeEnterSpy).toHaveBeenCalledWith(_el)
+        expect(onEnterSpy).toHaveBeenCalledWith(_el)
+        expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(afterEnterSpy).not.toHaveBeenCalled()
+        expect(vm.$el.children[0].className).toBe('test test-enter-active')
+      }).thenWaitFor(duration + 10).then(() => {
+        expect(afterEnterSpy).toHaveBeenCalledWith(_el)
+        expect(vm.$el.children[0].className).toBe('test')
+      }).then(done)
+    })
+
     it('explicit user callback in JavaScript hooks', done => {
       let next
       const vm = new Vue({
@@ -316,7 +389,7 @@ if (!isIE9) {
       vm.ok = false
       waitForUpdate(() => {
         expect(leaveSpy).toHaveBeenCalled()
-        expect(vm.$el.innerHTML).toBe('')
+        expect(vm.$el.innerHTML).toBe('<!---->')
         vm.ok = true
       }).then(() => {
         expect(enterSpy).toHaveBeenCalled()
@@ -339,9 +412,9 @@ if (!isIE9) {
       vm.ok = false
       waitForUpdate(() => {
         expect(leaveSpy).toHaveBeenCalled()
-        expect(vm.$el.innerHTML).toBe('<div class="nope-leave nope-leave-active">foo</div>')
+        expect(vm.$el.innerHTML).toBe('<div class="nope-leave nope-leave-active">foo</div><!---->')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.innerHTML).toBe('')
+        expect(vm.$el.innerHTML).toBe('<!---->')
         vm.ok = true
       }).then(() => {
         expect(enterSpy).toHaveBeenCalled()
@@ -367,7 +440,7 @@ if (!isIE9) {
         }
       }).$mount(el)
 
-      expect(vm.$el.innerHTML).toBe('')
+      expect(vm.$el.innerHTML).toBe('<!---->')
       vm.ok = true
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
@@ -426,6 +499,43 @@ if (!isIE9) {
           </div>
         `,
         data: { ok: true }
+      }).$mount(el)
+
+      // should not apply transition on initial render by default
+      expect(vm.$el.textContent).toBe('foo')
+      expect(vm.$el.children[0].style.display).toBe('')
+      expect(vm.$el.children[0].className).toBe('test')
+      vm.ok = false
+      waitForUpdate(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active')
+      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].style.display).toBe('none')
+        vm.ok = true
+      }).then(() => {
+        expect(vm.$el.children[0].style.display).toBe('')
+        expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active')
+      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test')
+      }).then(done)
+    })
+
+    it('transition with v-show, inside child component', done => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <test v-show="ok"></test>
+          </div>
+        `,
+        data: { ok: true },
+        components: {
+          test: {
+            template: `<transition name="test"><div class="test">foo</div></transition>`
+          }
+        }
       }).$mount(el)
 
       // should not apply transition on initial render by default
@@ -616,7 +726,7 @@ if (!isIE9) {
         expect(vm.$el.childNodes[0].getAttribute('class')).toBe('test v-leave-active')
       }).thenWaitFor(duration + 10).then(() => {
         expect(vm.$el.childNodes.length).toBe(1)
-        expect(vm.$el.childNodes[0].nodeType).toBe(3) // should be an empty text node
+        expect(vm.$el.childNodes[0].nodeType).toBe(8) // should be an empty comment node
         expect(vm.$el.childNodes[0].textContent).toBe('')
         vm.ok = true
       }).then(() => {
@@ -645,6 +755,44 @@ if (!isIE9) {
                 <div>foo</div>
               </transition>
             ` // test transition override from parent
+          }
+        }
+      }).$mount(el)
+
+      // should not apply transition on initial render by default
+      expect(vm.$el.innerHTML).toBe('<div class="test">foo</div>')
+      vm.ok = false
+      waitForUpdate(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave-active')
+      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children.length).toBe(0)
+        vm.ok = true
+      }).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-enter-active')
+      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test')
+      }).then(done)
+    })
+
+    it('transition inside child component', done => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <test v-if="ok" class="test"></test>
+          </div>
+        `,
+        data: { ok: true },
+        components: {
+          test: {
+            template: `
+              <transition>
+                <div>foo</div>
+              </transition>
+            `
           }
         }
       }).$mount(el)

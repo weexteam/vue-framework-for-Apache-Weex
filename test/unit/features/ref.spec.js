@@ -3,10 +3,12 @@ import Vue from 'vue'
 describe('ref', () => {
   const components = {
     test: {
-      id: 'test'
+      id: 'test',
+      template: '<div>test</div>'
     },
     test2: {
-      id: 'test2'
+      id: 'test2',
+      template: '<div>test2</div>'
     }
   }
 
@@ -142,5 +144,17 @@ describe('ref', () => {
       expect(vm.$refs.list.length).toBe(vm.items.length)
       expect(vm.$refs.list.every((comp, i) => comp.$el.textContent === String(i + 1))).toBe(true)
     }
+  })
+
+  it('should register on component with empty roots', () => {
+    const vm = new Vue({
+      template: '<child ref="test"></child>',
+      components: {
+        child: {
+          template: '<div v-if="false"></div>'
+        }
+      }
+    }).$mount()
+    expect(vm.$refs.test).toBe(vm.$children[0])
   })
 })

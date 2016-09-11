@@ -1,4 +1,4 @@
-var path = require('path')
+const path = require('path')
 
 module.exports = {
   vue: path.resolve(__dirname, '../src/entries/web-runtime-with-compiler'),
