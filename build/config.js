@@ -21,10 +21,23 @@ const builds = {
     dest: path.resolve(__dirname, '../dist/vue.common.js'),
     format: 'cjs'
   },
+  // Weex runtime only (CommonJS). Used by bundlers e.g. Webpack & Browserify
+  'weex-runtime-dev': {
+    entry: path.resolve(__dirname, '../src/entries/weex-framework.js'),
+    dest: path.resolve(__dirname, '../dist/weex.common.js'),
+    format: 'cjs'
+  },
   // Minified runtime, only for filze size monitoring
   'web-runtime-prod': {
     entry: path.resolve(__dirname, '../src/entries/web-runtime.js'),
     dest: path.resolve(__dirname, '../dist/vue.common.min.js'),
+    format: 'umd',
+    env: 'production'
+  },
+  // Weex minified runtime, only for filze size monitoring
+  'weex-runtime-prod': {
+    entry: path.resolve(__dirname, '../src/entries/weex-framework.js'),
+    dest: path.resolve(__dirname, '../dist/weex.common.min.js'),
     format: 'umd',
     env: 'production'
   },
@@ -54,6 +67,13 @@ const builds = {
   'web-compiler': {
     entry: path.resolve(__dirname, '../src/entries/web-compiler.js'),
     dest: path.resolve(__dirname, '../packages/vue-template-compiler/build.js'),
+    format: 'cjs',
+    external: ['entities', 'de-indent']
+  },
+  // Weex compiler (CommonJS).
+  'weex-compiler': {
+    entry: path.resolve(__dirname, '../src/entries/weex-compiler.js'),
+    dest: path.resolve(__dirname, '../packages/weex-template-compiler/build.js'),
     format: 'cjs',
     external: ['entities', 'de-indent']
   },

@@ -6,19 +6,17 @@
   "files": [
     "dist/weex.common.js",
     "dist/weex.common.js.map",
-    "dist/weex.compiler.js",
+    "dist/weex.common.min.js",
     "src"
   ],
-  "_scripts": {
-    "dev": "webpack --watch --config build/webpack.weex.dev.config.js",
-    "build": "NODE_ENV=production node build/build.js weex.common.js,weex.compiler.js",
-  }
   "scripts": {
-    "dev": "TARGET=web-standalone-dev rollup -w -c build/config.js",
-    "dev:runtime": "TARGET=web-runtime-dev rollup -w -c build/config.js",
+    "dev": "TARGET=weex-runtime-dev rollup -w -c build/config.js",
+    "dev:compiler": "TARGET=weex-compiler rollup -w -c build/config.js",
     "dev:test": "karma start build/karma.dev.config.js",
     "dev:ssr": "TARGET=web-server-renderer rollup -w -c build/config.js",
-    "dev:compiler": "TARGET=web-compiler rollup -w -c build/config.js",
+    "dev:web": "TARGET=web-standalone-dev rollup -w -c build/config.js",
+    "dev:web:runtime": "TARGET=web-runtime-dev rollup -w -c build/config.js",
+    "dev:web:compiler": "TARGET=web-compiler rollup -w -c build/config.js",
     "build": "node build/build.js",
     "build:ssr": "npm run build -- vue.common.js,vue-server-renderer",
     "test": "npm run lint && flow check && npm run test:types && npm run test:cover && npm run test:e2e -- --env phantomjs && npm run test:ssr",
