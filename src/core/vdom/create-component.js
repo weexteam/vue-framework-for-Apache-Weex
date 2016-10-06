@@ -5,7 +5,8 @@ import VNode from './vnode'
 import { normalizeChildren } from './helpers'
 import { activeInstance, callHook } from '../instance/lifecycle'
 import { resolveSlots } from '../instance/render'
-import { warn, isObject, hasOwn, hyphenate, validateProp } from '../util/index'
+import { createElement } from './create-element'
+import { warn, isObject, hasOwn, hyphenate, validateProp, bind } from '../util/index'
 
 const hooks = { init, prepatch, insert, destroy }
 const hooksToMerge = Object.keys(hooks)
@@ -101,13 +102,15 @@ function createFunctionalComponent (
   }
   return Ctor.options.render.call(
     null,
-    context.$createElement,
+    // ensure the createElement function in functional components
+    // gets a unique context - this is necessary for correct named slot check
+    bind(createElement, { _self: Object.create(context) }),
     {
       props,
       data,
       parent: context,
       children: normalizeChildren(children),
-      slots: () => resolveSlots(children)
+      slots: () => resolveSlots(children, context)
     }
   )
 }

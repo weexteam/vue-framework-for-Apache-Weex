@@ -7,6 +7,8 @@ interface Component extends Vue {
 
 Vue.component('component', {
   data() {
+    this.$mount
+    this.a
     return {
       a: 1
     }
@@ -50,7 +52,9 @@ Vue.component('component', {
     },
     'b': 'someMethod',
     'c': {
-      handler(val: number, oldval: number) {},
+      handler(val, oldVal) {
+        this.a = val
+      },
       deep: true
     }
   },
@@ -85,13 +89,32 @@ Vue.component('component', {
       ref: 'myRef'
     }, [
       createElement("div", {}, "message"),
+      createElement(Vue.component("component")),
+      createElement({} as ComponentOptions<Vue>),
+      createElement({ functional: true }),
+
+      createElement(() => Vue.component("component")),
+      createElement(() => ( {} as ComponentOptions<Vue> )),
+      createElement(() => {
+        return new Promise((resolve) => {
+          resolve({} as ComponentOptions<Vue>);
+        })
+      }),
+      createElement((resolve, reject) => {
+        resolve({} as ComponentOptions<Vue>);
+        reject();
+      }),
+
       "message",
+
       [createElement("div", {}, "message")]
     ]);
   },
   staticRenderFns: [],
 
-  beforeCreate() {},
+  beforeCreate() {
+    this.a = 1;
+  },
   created() {},
   beforeDestroy() {},
   destroyed() {},
@@ -103,6 +126,7 @@ Vue.component('component', {
   directives: {
     a: {
       bind() {},
+      inserted() {},
       update() {},
       componentMounted() {},
       unbind() {}
@@ -120,7 +144,7 @@ Vue.component('component', {
   },
   components: {
     a: Vue.component(""),
-    b: {} as ComponentOptions
+    b: {} as ComponentOptions<Vue>
   },
   transitions: {},
   filters: {
@@ -129,11 +153,11 @@ Vue.component('component', {
     }
   },
   parent: new Vue,
-  mixins: [Vue.component(""), ({} as ComponentOptions)],
+  mixins: [Vue.component(""), ({} as ComponentOptions<Vue>)],
   name: "Component",
-  extends: {} as ComponentOptions,
+  extends: {} as ComponentOptions<Vue>,
   delimiters: ["${", "}"]
-} as ComponentOptions);
+} as ComponentOptions<Component>);
 
 Vue.component('functional-component', {
   props: ['prop'],
@@ -147,3 +171,12 @@ Vue.component('functional-component', {
     return createElement("div", {}, context.children);
   }
 } as FunctionalComponentOptions);
+
+Vue.component("async-component", (resolve, reject) => {
+  setTimeout(() => {
+    resolve(Vue.component("component"));
+  }, 0);
+  return new Promise((resolve) => {
+    resolve({ functional: true } as FunctionalComponentOptions);
+  })
+});

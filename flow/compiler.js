@@ -14,6 +14,7 @@ declare type CompilerOptions = {
   preserveWhitespace?: boolean;
   isFromDOM?: boolean;
   shouldDecodeTags?: boolean;
+  shouldDecodeNewlines?: boolean;
 
   // runtime user-configurable
   delimiters?: [string, string]; // template delimiters
@@ -48,8 +49,6 @@ declare type ASTElementHandler = {
 declare type ASTElementHandlers = {
   [key: string]: ASTElementHandler | Array<ASTElementHandler>;
 }
-
-declare type ASTElementHooks = { [key: string]: Array<string> }
 
 declare type ASTDirective = {
   name: string;
@@ -105,7 +104,6 @@ declare type ASTElement = {
   staticClass?: string;
   classBinding?: string;
   styleBinding?: string;
-  hooks?: ASTElementHooks;
   events?: ASTElementHandlers;
   nativeEvents?: ASTElementHandlers;
 
@@ -116,6 +114,7 @@ declare type ASTElement = {
 
   forbidden?: true;
   once?: true;
+  wrapData?: (code: string) => string;
 }
 
 declare type ASTExpression = {

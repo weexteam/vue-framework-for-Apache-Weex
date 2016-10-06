@@ -62,6 +62,7 @@ export function parse (
     isUnaryTag: options.isUnaryTag,
     isFromDOM: options.isFromDOM,
     shouldDecodeTags: options.shouldDecodeTags,
+    shouldDecodeNewlines: options.shouldDecodeNewlines,
     start (tag, attrs, unary) {
       // check namespace.
       // inherit parent ns if there is one
@@ -114,12 +115,12 @@ export function parse (
         processFor(element)
         processIf(element)
         processOnce(element)
+        processKey(element)
 
         // determine whether this is a plain element after
         // removing structural attributes
         element.plain = !element.key && !attrs.length
 
-        processKey(element)
         processRef(element)
         processSlot(element)
         processComponent(element)
@@ -257,6 +258,9 @@ function processRawAttrs (el) {
 function processKey (el) {
   const exp = getBindingAttr(el, 'key')
   if (exp) {
+    if (process.env.NODE_ENV !== 'production' && el.tag === 'template') {
+      warn(`<template> cannot be keyed. Place the key on real elements instead.`)
+    }
     el.key = exp
   }
 }

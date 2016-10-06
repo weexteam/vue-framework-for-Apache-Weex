@@ -1,6 +1,6 @@
 /* @flow */
 
-import { isIE } from 'web/util/index'
+import { isIE } from 'core/util/env'
 import { addHandler, addProp, getBindingAttr } from 'compiler/helpers'
 
 let warn
@@ -40,8 +40,8 @@ function genCheckboxModel (el: ASTElement, value: string) {
   const falseValueBinding = getBindingAttr(el, 'false-value') || 'false'
   addProp(el, 'checked',
     `Array.isArray(${value})` +
-      `?(${value}).indexOf(${valueBinding})>-1` +
-      `:(${value})===(${trueValueBinding})`
+      `?_i(${value},${valueBinding})>-1` +
+      `:_q(${value},${trueValueBinding})`
   )
   addHandler(el, 'change',
     `var $$a=${value},` +
@@ -49,7 +49,7 @@ function genCheckboxModel (el: ASTElement, value: string) {
         `$$c=$$el.checked?(${trueValueBinding}):(${falseValueBinding});` +
     'if(Array.isArray($$a)){' +
       `var $$v=${valueBinding},` +
-          '$$i=$$a.indexOf($$v);' +
+          '$$i=_i($$a,$$v);' +
       `if($$c){$$i<0&&(${value}=$$a.concat($$v))}` +
       `else{$$i>-1&&(${value}=$$a.slice(0,$$i).concat($$a.slice($$i+1)))}` +
     `}else{${value}=$$c}`,
@@ -67,7 +67,7 @@ function genRadioModel (el: ASTElement, value: string) {
     )
   }
   const valueBinding = getBindingAttr(el, 'value') || 'null'
-  addProp(el, 'checked', `(${value})===(${valueBinding})`)
+  addProp(el, 'checked', `_q(${value},${valueBinding})`)
   addHandler(el, 'change', `${value}=${valueBinding}`, null, true)
 }
 
@@ -107,6 +107,15 @@ function genDefaultModel (
     : `${value}=${valueExpression}`
   if (isNative && needCompositionGuard) {
     code = `if($event.target.composing)return;${code}`
+  }
+  // inputs with type="file" are read only and setting the input's
+  // value will throw an error.
+  if (process.env.NODE_ENV !== 'production' &&
+      type === 'file') {
+    warn(
+      `<${el.tag} v-model="${value}" type="file">:\n` +
+      `File inputs are read only. Use a v-on:change listener instead.`
+    )
   }
   addProp(el, 'value', isNative ? `_s(${value})` : `(${value})`)
   addHandler(el, event, code, null, true)

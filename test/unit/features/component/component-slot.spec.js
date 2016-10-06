@@ -316,7 +316,7 @@ describe('Component slot', () => {
   // #3254
   it('should not keep slot name when passed further down', () => {
     const vm = new Vue({
-      template: '<test><span slot="foo">foo<span></test>',
+      template: '<test><span slot="foo">foo</span></test>',
       components: {
         test: {
           template: '<child><slot name="foo"></slot></child>',
@@ -339,7 +339,7 @@ describe('Component slot', () => {
 
   it('should not keep slot name when passed further down (nested)', () => {
     const vm = new Vue({
-      template: '<wrap><test><span slot="foo">foo<span></test></wrap>',
+      template: '<wrap><test><span slot="foo">foo</span></test></wrap>',
       components: {
         wrap: {
           template: '<div><slot></slot></div>'
@@ -372,8 +372,9 @@ describe('Component slot', () => {
         </div>
       `
     }
+
     const vm = new Vue({
-      template: '<test><span slot="foo">foo<span></test>',
+      template: '<test><span slot="foo">foo</span></test>',
       components: {
         test: {
           functional: true,
@@ -472,8 +473,8 @@ describe('Component slot', () => {
         }
       }
     }).$mount()
-    expect('Duplicate presense of slot "default"').toHaveBeenWarned()
-    expect('Duplicate presense of slot "a"').toHaveBeenWarned()
+    expect('Duplicate presence of slot "default"').toHaveBeenWarned()
+    expect('Duplicate presence of slot "a"').toHaveBeenWarned()
   })
 
   it('should not warn valid conditional slots', () => {
@@ -492,7 +493,7 @@ describe('Component slot', () => {
         }
       }
     }).$mount()
-    expect('Duplicate presense of slot "default"').not.toHaveBeenWarned()
+    expect('Duplicate presence of slot "default"').not.toHaveBeenWarned()
   })
 
   // #3518
@@ -521,5 +522,18 @@ describe('Component slot', () => {
       triggerEvent(vm.$el.querySelector('.click'), 'click')
       expect(spy).toHaveBeenCalled()
     }).then(done)
+  })
+
+  it('renders static tree with text', () => {
+    const vm = new Vue({
+      template: `<div><test><template><div></div>Hello<div></div></template></test></div>`,
+      components: {
+        test: {
+          template: '<div><slot></slot></div>'
+        }
+      }
+    })
+    vm.$mount()
+    expect('Error when rendering root').not.toHaveBeenWarned()
   })
 })

@@ -14,11 +14,9 @@ type PropOptions = {
 export function validateProp (
   key: string,
   propOptions: Object,
-  propsData: ?Object,
+  propsData: Object,
   vm?: Component
 ): any {
-  /* istanbul ignore if */
-  if (!propsData) return
   const prop = propOptions[key]
   const absent = !hasOwn(propsData, key)
   let value = propsData[key]
@@ -91,7 +89,7 @@ function assertProp (
     return
   }
   let type = prop.type
-  let valid = !type
+  let valid = !type || type === true
   const expectedTypes = []
   if (type) {
     if (!Array.isArray(type)) {

@@ -1,5 +1,5 @@
 const path = require('path')
-const flow = require('./rollup-plugin-flow')
+const flow = require('rollup-plugin-flow-no-whitespace')
 const buble = require('rollup-plugin-buble')
 const replace = require('rollup-plugin-replace')
 const alias = require('rollup-plugin-alias')
@@ -19,7 +19,8 @@ const builds = {
   'web-runtime-dev': {
     entry: path.resolve(__dirname, '../src/entries/web-runtime.js'),
     dest: path.resolve(__dirname, '../dist/vue.common.js'),
-    format: 'cjs'
+    format: 'cjs',
+    banner
   },
   // Weex runtime only (CommonJS). Used by bundlers e.g. Webpack & Browserify
   'weex-runtime-dev': {
@@ -32,7 +33,8 @@ const builds = {
     entry: path.resolve(__dirname, '../src/entries/web-runtime.js'),
     dest: path.resolve(__dirname, '../dist/vue.common.min.js'),
     format: 'umd',
-    env: 'production'
+    env: 'production',
+    banner
   },
   // Weex minified runtime, only for filze size monitoring
   'weex-runtime-prod': {

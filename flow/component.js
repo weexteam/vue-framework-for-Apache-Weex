@@ -52,7 +52,7 @@ declare interface Component {
   _isVue: true;
   _self: Component;
   _renderProxy: Component;
-  _renderParent: ?Component;
+  _renderContext: ?Component;
   _watcher: Watcher;
   _watchers: Array<Watcher>;
   _data: Object;
@@ -89,6 +89,10 @@ declare interface Component {
   _n: (value: string) => number | string;
   // empty vnode
   _e: () => VNode;
+  // loose equal
+  _q: (a: mixed, b: mixed) => boolean;
+  // loose indexOf
+  _i: (arr: Array<mixed>, val: mixed) => number;
   // resolveFilter
   _f: (id: string) => Function;
   // renderList
@@ -96,7 +100,7 @@ declare interface Component {
   // renderSlot
   _t: (name: string, fallback: ?Array<VNode>) => ?Array<VNode>;
   // apply v-bind object
-  _b: (vnode: VNodeWithData, value: any) => void;
+  _b: (data: any, value: any, asProp?: boolean) => VNodeData;
   // retrive custom keyCode
   _k: (key: string) => ?number;
 

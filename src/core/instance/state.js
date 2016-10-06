@@ -32,8 +32,8 @@ export function initState (vm: Component) {
 
 function initProps (vm: Component) {
   const props = vm.$options.props
-  const propsData = vm.$options.propsData
   if (props) {
+    const propsData = vm.$options.propsData || {}
     const keys = vm.$options._propKeys = Object.keys(props)
     const isRoot = !vm.$parent
     // root instance props should be converted
@@ -142,7 +142,11 @@ function initMethods (vm: Component) {
   const methods = vm.$options.methods
   if (methods) {
     for (const key in methods) {
-      vm[key] = bind(methods[key], vm)
+      if (methods[key] != null) {
+        vm[key] = bind(methods[key], vm)
+      } else if (process.env.NODE_ENV !== 'production') {
+        warn(`Method "${key}" is undefined in options.`, vm)
+      }
     }
   }
 }

@@ -3,8 +3,8 @@
  * properties to Elements.
  */
 
-import { warn } from 'core/util/index'
-import { isAndroid, isIE9 } from 'web/util/index'
+import { looseEqual, looseIndexOf } from 'shared/util'
+import { warn, nextTick, isAndroid, isIE9, isIE, isEdge } from 'core/util/index'
 
 const modelableTagRE = /^input|select|textarea|vue-component-[0-9]+(-[0-9a-zA-Z_\-]*)?$/
 
@@ -33,7 +33,15 @@ export default {
     }
     if (vnode.tag === 'select') {
       setSelected(el, binding, vnode.context)
-    } else {
+      /* istanbul ignore if */
+      if (isIE || isEdge) {
+        const cb = () => {
+          setSelected(el, binding, vnode.context)
+        }
+        nextTick(cb)
+        setTimeout(cb, 0)
+      }
+    } else if (vnode.tag === 'textarea' || el.type === 'text') {
       if (!isAndroid) {
         el.addEventListener('compositionstart', onCompositionStart)
         el.addEventListener('compositionend', onCompositionEnd)
@@ -78,12 +86,12 @@ function setSelected (el, binding, vm) {
   for (let i = 0, l = el.options.length; i < l; i++) {
     option = el.options[i]
     if (isMultiple) {
-      selected = value.indexOf(getValue(option)) > -1
+      selected = looseIndexOf(value, getValue(option)) > -1
       if (option.selected !== selected) {
         option.selected = selected
       }
     } else {
-      if (getValue(option) === value) {
+      if (looseEqual(getValue(option), value)) {
         if (el.selectedIndex !== i) {
           el.selectedIndex = i
         }
@@ -98,7 +106,7 @@ function setSelected (el, binding, vm) {
 
 function hasNoMatchingOption (value, options) {
   for (let i = 0, l = options.length; i < l; i++) {
-    if (getValue(options[i]) === value) {
+    if (looseEqual(getValue(options[i]), value)) {
       return false
     }
   }
@@ -108,7 +116,7 @@ function hasNoMatchingOption (value, options) {
 function getValue (option) {
   return '_value' in option
     ? option._value
-    : option.value || option.text
+    : option.value
 }
 
 function onCompositionStart (e) {
