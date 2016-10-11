@@ -25,7 +25,7 @@
     "test:cover": "karma start build/karma.cover.config.js",
     "test:e2e": "npm run build -- vue.js && node test/e2e/runner.js",
     "test:ssr": "npm run build:ssr && VUE_ENV=server jasmine JASMINE_CONFIG_PATH=test/ssr/jasmine.json",
-    "test:weex": "jasmine JASMINE_CONFIG_PATH=test/weex/jasmine.json",
+    "test:weex": "npm run build:weex && jasmine JASMINE_CONFIG_PATH=test/weex/jasmine.json",
     "test:sauce": "npm run sauce -- 0 && npm run sauce -- 1 && npm run sauce -- 2",
     "test:types": "tsc -p ./types/test/tsconfig.json",
     "lint": "eslint src build test",
