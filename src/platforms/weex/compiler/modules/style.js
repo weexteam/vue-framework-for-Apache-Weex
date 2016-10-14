@@ -4,7 +4,8 @@ import { cached, camelize } from 'shared/util'
 import { parseText } from 'compiler/parser/text-parser'
 import {
   getAndRemoveAttr,
-  getBindingAttr
+  getBindingAttr,
+  baseWarn
 } from 'compiler/helpers'
 
 type StaticStyleResult = {
@@ -15,8 +16,18 @@ type StaticStyleResult = {
 const normalize = cached(camelize)
 
 function transformNode (el: ASTElement, options: CompilerOptions) {
+  const warn = options.warn || baseWarn
   const staticStyle = getAndRemoveAttr(el, 'style')
   const { dynamic, styleResult } = parseStaticStyle(staticStyle, options)
+  if (dynamic) {
+    if (process.env.NODE_ENV !== 'production') {
+      warn(
+        `style="${staticStyle}": ` +
+        'Interpolation inside attributes has been deprecated. ' +
+        'Use v-bind or the colon shorthand instead.'
+      )
+    }
+  }
   if (!dynamic && styleResult) {
     el.staticStyle = styleResult
   }
