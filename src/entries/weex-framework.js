@@ -7,13 +7,31 @@ const {
   components
 } = renderer
 
-let activeId = {}
+let activeId = undefined
+const oriIsReservedTag = (Vue && Vue.config && typeof Vue.config.isReservedTag === 'function') ? Vue.config.isReservedTag : function () {}
 
 export function init (cfg) {
   renderer.Document = cfg.Document
   renderer.Element = cfg.Element
   renderer.Comment = cfg.Comment
   renderer.sendTasks = cfg.sendTasks
+}
+
+export function reset () {
+  clear(instances)
+  clear(modules)
+  clear(components)
+  delete renderer.Document
+  delete renderer.Element
+  delete renderer.Comment
+  delete renderer.sendTasks
+  Vue.config.isReservedTag = oriIsReservedTag
+}
+
+function clear (obj) {
+  for (const key in obj) {
+    delete obj[key]
+  }
 }
 
 export function createInstance (
