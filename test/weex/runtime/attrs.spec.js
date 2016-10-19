@@ -1,43 +1,32 @@
-import * as Vue from '../../../dist/weex.common.js'
-import { compile } from '../../../packages/weex-template-compiler'
+import {
+  compileAndStringify,
+  prepareRuntime,
+  resetRuntime,
+  createInstance
+} from '../helpers/index'
 
-import { Runtime, Instance } from 'weex-vdom-tester'
-import { config } from 'weex-js-framework/src/runtime'
-
-function parseStatic (fns) {
-  return '[' + fns.map(fn => `function () { ${fn} }`).join(',') + ']'
-}
-
-describe('generate attributes', () => {
-  let sendTasksHandler = function () {}
+describe('generate class', () => {
   let runtime
 
   beforeAll(() => {
-    config.sendTasks = config.Document.handler = function () {
-      sendTasksHandler.apply(null, arguments)
-    }
-    Vue.init(config)
-    runtime = new Runtime(Vue)
-    sendTasksHandler = function () {
-      runtime.target.callNative.apply(runtime.target, arguments)
-    }
+    runtime = prepareRuntime()
   })
 
   afterAll(() => {
-    Vue.reset()
+    resetRuntime()
+    runtime = null
   })
 
   it('should be generated', () => {
-    const instance = new Instance(runtime)
-    const { render, staticRenderFns } = compile(`
+    const { render, staticRenderFns } = compileAndStringify(`
       <div>
         <text value="Hello World" style="font-size: 100"></text>
       </div>
     `)
-    instance.$create(`
+    const instance = createInstance(runtime, `
       new Vue({
-        render: function () { ${render} },
-        staticRenderFns: ${parseStatic(staticRenderFns)},
+        render: ${render},
+        staticRenderFns: ${staticRenderFns},
         el: 'body'
       })
     `)
@@ -50,13 +39,12 @@ describe('generate attributes', () => {
   })
 
   it('should be mutated', (done) => {
-    const instance = new Instance(runtime)
-    const { render, staticRenderFns } = compile(`
+    const { render, staticRenderFns } = compileAndStringify(`
       <div @click="foo">
         <text :value="x"></text>
       </div>
     `)
-    instance.$create(`
+    const instance = createInstance(runtime, `
       new Vue({
         data: {
           x: 'Hello World'
@@ -66,8 +54,8 @@ describe('generate attributes', () => {
             this.x = 'Hello Vue'
           }
         },
-        render: function () { ${render} },
-        staticRenderFns: ${parseStatic(staticRenderFns)},
+        render: ${render},
+        staticRenderFns: ${staticRenderFns},
         el: "body"
       })
     `)
@@ -93,13 +81,12 @@ describe('generate attributes', () => {
   })
 
   it('should be cleared', (done) => {
-    const instance = new Instance(runtime)
-    const { render, staticRenderFns } = compile(`
+    const { render, staticRenderFns } = compileAndStringify(`
       <div @click="foo">
         <text :value="x"></text>
       </div>
     `)
-    instance.$create(`
+    const instance = createInstance(runtime, `
       new Vue({
         data: {
           x: 'Hello World'
@@ -109,8 +96,8 @@ describe('generate attributes', () => {
             this.x = ''
           }
         },
-        render: function () { ${render} },
-        staticRenderFns: ${parseStatic(staticRenderFns)},
+        render: ${render},
+        staticRenderFns: ${staticRenderFns},
         el: "body"
       })
     `)
