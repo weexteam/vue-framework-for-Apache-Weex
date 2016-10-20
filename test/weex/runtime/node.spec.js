@@ -65,8 +65,95 @@ describe('node in render function', () => {
     // todo
   })
 
-  it('should be generated with module diff', () => {
-    // todo
+  xit('should be generated with module diff', (done) => {
+    const instance = createInstance(runtime, `
+      new Vue({
+        data: {
+          counter: 0
+        },
+        methods: {
+          foo: function () {}
+        },
+        render: function (createElement) {
+          switch (this.counter) {
+            case 1:
+            return createElement('div', {}, [
+              createElement('text', { attrs: { value: 'World' }}, [])
+            ])
+
+            case 2:
+            return createElement('div', {}, [
+              createElement('text', { attrs: { value: 'World' }, style: { fontSize: 100 }}, [])
+            ])
+
+            case 3:
+            return createElement('div', {}, [
+              createElement('text', {
+                attrs: { value: 'World' },
+                style: { fontSize: 100 },
+                on: { click: this.foo }
+              }, [])
+            ])
+
+            case 4:
+            return createElement('div', {}, [
+              createElement('text', {
+                attrs: { value: 'Weex' },
+                style: { color: '#ff0000' }
+              }, [])
+            ])
+
+            default:
+            return createElement('div', {}, [
+              createElement('text', { attrs: { value: 'Hello' }}, [])
+            ])
+          }
+        },
+        el: "body"
+      })
+    `)
+    expect(instance.getRealRoot()).toEqual({
+      type: 'div',
+      children: [
+        { type: 'text', attr: { value: 'Hello' }}
+      ]
+    })
+
+    syncPromise([
+      checkRefresh(instance, { counter: 1 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'World' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 2 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'World' }, style: { fontSize: 100 }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 3 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'World' }, style: { fontSize: 100 }, event: ['click'] }
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 4 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Weex' }, style: { color: '#ff0000' }}
+          ]
+        })
+        done()
+      })
+    ])
   })
 
   it('should be generated with sub components', () => {
@@ -313,7 +400,119 @@ describe('node in render function', () => {
     ])
   })
 
-  it('should be generated with component diff', () => {
-    // todo
+  it('should be generated with component diff', (done) => {
+    const instance = createInstance(runtime, `
+      new Vue({
+        data: {
+          counter: 0
+        },
+        components: {
+          foo: {
+            props: { a: { default: '1' }, b: { default: '2' }},
+            render: function (createElement) {
+              return createElement('text', { attrs: { value: this.a + '-' + this.b }}, [])
+            }
+          },
+          bar: {
+            render: function (createElement) {
+              return createElement('text', { attrs: { value: 'Bar' }, style: { fontSize: 100 }})
+            }
+          },
+          baz: {
+            render: function (createElement) {
+              return createElement('image', { attrs: { src: 'http://example.com/favicon.ico' }})
+            }
+          }
+        },
+        render: function (createElement) {
+          switch (this.counter) {
+            case 1:
+            return createElement('div', {}, [
+              createElement('foo', { props: { a: '111', b: '222' }}, [])
+            ])
+
+            case 2:
+            return createElement('div', {}, [
+              createElement('foo', {}, [])
+            ])
+
+            case 3:
+            return createElement('div', {}, [
+              createElement('bar', {}, [])
+            ])
+
+            case 4:
+            return createElement('div', {}, [
+              createElement('baz', {}, [])
+            ])
+
+            case 5:
+            return createElement('div', {}, [
+              createElement('foo', {}, []),
+              createElement('bar', {}, []),
+              createElement('baz', {}, [])
+            ])
+
+            default:
+            return createElement('div', {}, [
+              createElement('foo', { props: { a: '111' }}, [])
+            ])
+          }
+        },
+        el: "body"
+      })
+    `)
+    expect(instance.getRealRoot()).toEqual({
+      type: 'div',
+      children: [
+        { type: 'text', attr: { value: '111-2' }}
+      ]
+    })
+
+    syncPromise([
+      checkRefresh(instance, { counter: 1 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: '111-222' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 2 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: '1-2' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 3 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Bar' }, style: { fontSize: 100 }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 4 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'image', attr: { src: 'http://example.com/favicon.ico' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 5 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: '1-2' }},
+            { type: 'text', attr: { value: 'Bar' }, style: { fontSize: 100 }},
+            { type: 'image', attr: { src: 'http://example.com/favicon.ico' }}
+          ]
+        })
+        done()
+      })
+    ])
   })
 })
