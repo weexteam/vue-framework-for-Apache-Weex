@@ -38,7 +38,7 @@ describe('generate class', () => {
     })
   })
 
-  it('should be mutated', (done) => {
+  it('should be updated', (done) => {
     const { render, staticRenderFns } = compileAndStringify(`
       <div @click="foo">
         <text :value="x"></text>

@@ -95,7 +95,9 @@
     "selenium-server": "2.53.1",
     "typescript": "^2.0.2",
     "uglify-js": "^2.6.2",
-    "webpack": "^1.13.2"
+    "webpack": "^1.13.2",
+    "weex-js-framework": "^0.17.0-alpha2",
+    "weex-vdom-tester": "^0.1.2"
   },
   "dependencies": {
     "weex-styler": "0.0.17"
