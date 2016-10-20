@@ -53,7 +53,7 @@ export function createInstance (
     'clearInterval',
     appCode)
   const subVue = Vue.extend({});
-  ['util', 'set', 'del', 'nextTick', 'use'].forEach(name => {
+  ['util', 'set', 'delete', 'nextTick', 'use'].forEach(name => {
     subVue[name] = Vue[name]
   })
 

@@ -43,20 +43,18 @@ function updateStyle (oldVnode: VNodeWithData, vnode: VNodeWithData) {
 
   for (name in oldStyle) {
     if (!style[name]) {
-      elm.setStyle(normalize(name))
+      elm.setStyle(normalize(name), '')
     }
   }
   for (name in style) {
     cur = style[name]
-    if (cur !== oldStyle[name]) {
-      elm.setStyle(normalize(name), cur)
-    }
+    elm.setStyle(normalize(name), cur)
   }
 }
 
 function toObject (arr) {
-  const res = arr[0] || {}
-  for (var i = 1; i < arr.length; i++) {
+  const res = {}
+  for (var i = 0; i < arr.length; i++) {
     if (arr[i]) {
       extend(res, arr[i])
     }

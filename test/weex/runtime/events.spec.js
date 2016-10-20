@@ -5,7 +5,7 @@ import {
   createInstance
 } from '../helpers/index'
 
-describe('generate class', () => {
+describe('generate events', () => {
   let runtime
 
   beforeAll(() => {
