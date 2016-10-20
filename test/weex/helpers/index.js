@@ -40,3 +40,21 @@ export function createInstance (runtime, code) {
   }
   return instance
 }
+
+export function syncPromise (arr) {
+  let p = Promise.resolve()
+  arr.forEach(item => {
+    p = p.then(item)
+  })
+  return p
+}
+
+export function checkRefresh (instance, data, checker) {
+  return () => new Promise(res => {
+    instance.$refresh(data)
+    setTimeout(() => {
+      checker(instance.getRealRoot())
+      res()
+    })
+  })
+}

@@ -2,7 +2,9 @@ import {
   compileAndStringify,
   prepareRuntime,
   resetRuntime,
-  createInstance
+  createInstance,
+  syncPromise,
+  checkRefresh
 } from '../helpers/index'
 
 describe('node in render function', () => {
@@ -63,6 +65,10 @@ describe('node in render function', () => {
     // todo
   })
 
+  it('should be generated with module diff', () => {
+    // todo
+  })
+
   it('should be generated with sub components', () => {
     const instance = createInstance(runtime, `
       new Vue({
@@ -94,7 +100,101 @@ describe('node in render function', () => {
     })
   })
 
-  it('should be generated with module diff', (done) => {
+  it('should be generated with if/for diff', (done) => {
+    const { render, staticRenderFns } = compileAndStringify(`
+      <div>
+        <text v-for="item in list" v-if="item.x">{{item.v}}</text>
+      </div>
+    `)
+    const instance = createInstance(runtime, `
+      new Vue({
+        data: {
+          list: [
+            { v: 'Hello', x: true },
+            { v: 'World', x: false },
+            { v: 'Weex', x: true }
+          ]
+        },
+        computed: {
+          x: {
+            get: function () { return 0 },
+            set: function (v) {
+              switch (v) {
+                case 1:
+                this.list[1].x = true
+                break
+                case 2:
+                this.list.push({ v: 'v-if' })
+                break
+                case 3:
+                this.list.push({ v: 'v-for', x: true })
+                break
+                case 4:
+                this.list.splice(1, 2)
+                break
+              }
+            }
+          }
+        },
+        render: ${render},
+        staticRenderFns: ${staticRenderFns},
+        el: "body"
+      })
+    `)
+    expect(instance.getRealRoot()).toEqual({
+      type: 'div',
+      children: [
+        { type: 'text', attr: { value: 'Hello' }},
+        { type: 'text', attr: { value: 'Weex' }}
+      ]
+    })
+
+    syncPromise([
+      checkRefresh(instance, { x: 1 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Hello' }},
+            { type: 'text', attr: { value: 'World' }},
+            { type: 'text', attr: { value: 'Weex' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { x: 2 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Hello' }},
+            { type: 'text', attr: { value: 'World' }},
+            { type: 'text', attr: { value: 'Weex' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { x: 3 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Hello' }},
+            { type: 'text', attr: { value: 'World' }},
+            { type: 'text', attr: { value: 'Weex' }},
+            { type: 'text', attr: { value: 'v-for' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { x: 4 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Hello' }},
+            { type: 'text', attr: { value: 'v-for' }}
+          ]
+        })
+        done()
+      })
+    ])
+  })
+
+  it('should be generated with node structure diff', (done) => {
     const instance = createInstance(runtime, `
       new Vue({
         data: {
@@ -154,19 +254,18 @@ describe('node in render function', () => {
       ]
     })
 
-    instance.$refresh({ counter: 1 })
-    setTimeout(() => {
-      expect(instance.getRealRoot()).toEqual({
-        type: 'div',
-        children: [
-          { type: 'text', attr: { value: 'Hello' }},
-          { type: 'text', attr: { value: 'World' }}
-        ]
-      })
-
-      instance.$refresh({ counter: 2 })
-      setTimeout(() => {
-        expect(instance.getRealRoot()).toEqual({
+    syncPromise([
+      checkRefresh(instance, { counter: 1 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Hello' }},
+            { type: 'text', attr: { value: 'World' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 2 }, result => {
+        expect(result).toEqual({
           type: 'div',
           children: [
             { type: 'text', attr: { value: 'Hello' }},
@@ -174,60 +273,44 @@ describe('node in render function', () => {
             { type: 'text', attr: { value: 'Weex' }}
           ]
         })
-
-        instance.$refresh({ counter: 3 })
-        setTimeout(() => {
-          expect(instance.getRealRoot()).toEqual({
-            type: 'div',
-            children: [
-              { type: 'text', attr: { value: 'Hello' }},
-              { type: 'text', attr: { value: 'Weex' }}
-            ]
-          })
-
-          instance.$refresh({ counter: 4 })
-          setTimeout(() => {
-            expect(instance.getRealRoot()).toEqual({
-              type: 'div',
-              children: [
-                { type: 'text', attr: { value: 'Weex' }}
-              ]
-            })
-
-            instance.$refresh({ counter: 5 })
-            setTimeout(() => {
-              expect(instance.getRealRoot()).toEqual({
-                type: 'div',
-                children: [
-                  { type: 'text', attr: { value: 'Hello' }},
-                  { type: 'text', attr: { value: 'Weex' }}
-                ]
-              })
-
-              instance.$refresh({ counter: 6 })
-              setTimeout(() => {
-                expect(instance.getRealRoot()).toEqual({
-                  type: 'div',
-                  children: [
-                    { type: 'input', attr: { value: 'Hello' }},
-                    { type: 'text', attr: { value: 'Weex' }}
-                  ]
-                })
-                done()
-              })
-            })
-          })
+      }),
+      checkRefresh(instance, { counter: 3 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Hello' }},
+            { type: 'text', attr: { value: 'Weex' }}
+          ]
         })
+      }),
+      checkRefresh(instance, { counter: 4 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Weex' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 5 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'text', attr: { value: 'Hello' }},
+            { type: 'text', attr: { value: 'Weex' }}
+          ]
+        })
+      }),
+      checkRefresh(instance, { counter: 6 }, result => {
+        expect(result).toEqual({
+          type: 'div',
+          children: [
+            { type: 'input', attr: { value: 'Hello' }},
+            { type: 'text', attr: { value: 'Weex' }}
+          ]
+        })
+        done()
       })
-    })
-  })
-
-  it('should be generated with if/for diff', () => {
-    // todo
-  })
-
-  it('should be generated with node structure diff', () => {
-    // todo
+    ])
   })
 
   it('should be generated with component diff', () => {
