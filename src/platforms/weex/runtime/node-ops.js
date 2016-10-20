@@ -24,6 +24,11 @@ export function insertBefore (node, target, before) {
       node.setAttr('value', target.text)
       target.parentNode = node
     }
+    else {
+      const text = createElement('text')
+      text.setAttr('value', child.text)
+      node.insertBefore(text, before)
+    }
     return
   }
   node.insertBefore(target, before)
@@ -38,6 +43,11 @@ export function appendChild (node, child) {
     if (node.type === 'text') {
       node.setAttr('value', child.text)
       child.parentNode = node
+    }
+    else {
+      const text = createElement('text')
+      text.setAttr('value', child.text)
+      node.appendChild(text)
     }
     return
   }
