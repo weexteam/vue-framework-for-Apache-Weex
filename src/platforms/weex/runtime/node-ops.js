@@ -14,6 +14,10 @@ export function createTextNode (text) {
   return new renderer.TextNode(text)
 }
 
+export function createComment (text) {
+  return new renderer.Comment(text)
+}
+
 export function insertBefore (node, target, before) {
   if (target.nodeType === 3) {
     if (node.type === 'text') {
@@ -59,4 +63,8 @@ export function setTextContent (node, text) {
 
 export function childNodes (node) {
   return node.pureChildren
+}
+
+export function setAttribute (node, key, val) {
+  node.setAttr(key, val)
 }
