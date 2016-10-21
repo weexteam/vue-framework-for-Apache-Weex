@@ -198,19 +198,154 @@ describe('framework APIs', () => {
     expect(root).toMatch(/not found/)
   })
 
-  it('reveiveTasks: fireEvent', () => {
-    // todo
-    // 1. createInstance
-    // 2. fireEvent
-    // 3. receive result
+  it('reveiveTasks: fireEvent', (done) => {
+    const instance = new Instance(runtime)
+    Vue.createInstance(instance.id, `
+      new Vue({
+        data: {
+          x: 'Hello'
+        },
+        methods: {
+          update: function (e) {
+            this.x = 'World'
+          }
+        },
+        render: function (createElement) {
+          return createElement('div', {}, [
+            createElement('text', { attrs: { value: this.x }, on: { click: this.update }}, [])
+          ])
+        },
+        el: "body"
+      })
+    `)
+    expect(instance.getRealRoot()).toEqual({
+      type: 'div',
+      children: [{
+        type: 'text',
+        attr: { value: 'Hello' },
+        event: ['click']
+      }]
+    })
+
+    const textRef = Vue.getRoot(instance.id).children[0].ref
+    Vue.receiveTasks(instance.id, [
+      { method: 'fireEvent', args: [textRef, 'click']}
+    ])
+
+    setTimeout(() => {
+      expect(instance.getRealRoot()).toEqual({
+        type: 'div',
+        children: [{
+          type: 'text',
+          attr: { value: 'World' },
+          event: ['click']
+        }]
+      })
+
+      Vue.destroyInstance(instance.id)
+      const result = Vue.receiveTasks(instance.id, [
+        { method: 'fireEvent', args: [textRef, 'click']}
+      ])
+      expect(result instanceof Error).toBe(true)
+      expect(result).toMatch(/receiveTasks/)
+      expect(result).toMatch(/not found/)
+      done()
+    })
   })
 
-  it('reveiveTasks: callback', () => {
-    // todo
-    // 1. createInstance
-    // 2. call a native module API with callback
-    // 3. invoke the callback
-    // 4. receive result
+  it('reveiveTasks: callback', (done) => {
+    Vue.registerModules({
+      foo: ['a', 'b', 'c']
+    })
+
+    const instance = new Instance(runtime)
+    Vue.createInstance(instance.id, `
+      const moduleFoo = __weex_require_module__('foo')
+      new Vue({
+        data: {
+          x: 'Hello'
+        },
+        methods: {
+          update: function (data = {}) {
+            this.x = data.value || 'World'
+          }
+        },
+        mounted: function () {
+          moduleFoo.a(data => {
+            this.update(data)
+          })
+        },
+        render: function (createElement) {
+          return createElement('div', {}, [
+            createElement('text', { attrs: { value: this.x }}, [])
+          ])
+        },
+        el: "body"
+      })
+    `)
+    expect(instance.getRealRoot()).toEqual({
+      type: 'div',
+      children: [{
+        type: 'text',
+        attr: { value: 'Hello' }
+      }]
+    })
+
+    let callbackId
+    instance.history.callNative.some(task => {
+      if (task.module === 'foo' && task.method === 'a') {
+        callbackId = task.args[0]
+        return true
+      }
+    })
+    Vue.receiveTasks(instance.id, [
+      { method: 'callback', args: [callbackId, undefined, true]}
+    ])
+
+    setTimeout(() => {
+      expect(instance.getRealRoot()).toEqual({
+        type: 'div',
+        children: [{
+          type: 'text',
+          attr: { value: 'World' }
+        }]
+      })
+
+      Vue.receiveTasks(instance.id, [
+        { method: 'callback', args: [callbackId, { value: 'Weex' }, true]}
+      ])
+      setTimeout(() => {
+        expect(instance.getRealRoot()).toEqual({
+          type: 'div',
+          children: [{
+            type: 'text',
+            attr: { value: 'Weex' }
+          }]
+        })
+
+        Vue.receiveTasks(instance.id, [
+          { method: 'callback', args: [callbackId]}
+        ])
+        setTimeout(() => {
+          expect(instance.getRealRoot()).toEqual({
+            type: 'div',
+            children: [{
+              type: 'text',
+              attr: { value: 'World' }
+            }]
+          })
+
+          Vue.destroyInstance(instance.id)
+          const result = Vue.receiveTasks(instance.id, [
+            { method: 'callback', args: [callbackId]}
+          ])
+          expect(result instanceof Error).toBe(true)
+          expect(result).toMatch(/receiveTasks/)
+          expect(result).toMatch(/not found/)
+          done()
+        })
+      })
+    })
   })
 
   it('registerModules', () => {
@@ -222,17 +357,77 @@ describe('framework APIs', () => {
         { name: 'c', args: ['string', 'number'] }
       ]
     })
-    // todo
-    // 1. create instance
-    // 2. call native module APIs
-    // 3. check callNative history
+
+    const instance = new Instance(runtime)
+    Vue.createInstance(instance.id, `
+      const moduleFoo = __weex_require_module__('foo')
+      const moduleBar = __weex_require_module__('bar')
+      const moduleBaz = __weex_require_module__('baz')
+      new Vue({
+        render: function (createElement) {
+          const value = []
+          if (typeof moduleFoo === 'object') {
+            value.push('foo')
+            value.push(Object.keys(moduleFoo))
+          }
+          if (typeof moduleBar === 'object') {
+            value.push('bar')
+            value.push(Object.keys(moduleBar))
+          }
+          if (typeof moduleBaz === 'object') {
+            value.push('baz')
+            value.push(Object.keys(moduleBaz))
+          }
+          return createElement('div', {}, [
+            createElement('text', { attrs: { value: value.toString() }}, [])
+          ])
+        },
+        mounted: function () {
+          moduleFoo.a(1, '2', true)
+          moduleBar.b(1)
+        },
+        el: "body"
+      })
+    `)
+    expect(instance.getRealRoot()).toEqual({
+      type: 'div',
+      children: [{
+        type: 'text',
+        attr: { value: 'foo,a,b,c,bar,a,b,c,baz,' }
+      }]
+    })
+
+    expect(instance.history.callNative.
+      filter(task => task.module === 'foo').
+      map(task => `${task.method}(${task.args})`)
+    ).toEqual(['a(1,2,true)'])
+
+    expect(instance.history.callNative.
+      filter(task => task.module === 'bar').
+      map(task => `${task.method}(${task.args})`)
+    ).toEqual(['b(1)'])
   })
 
   it('registerComponents', () => {
-    // todo
-    // 0. registration
-    // 1. create instance
-    // 2. catch error or warn
+    Vue.registerComponents(['foo', { type: 'bar' }, 'text'])
+    const instance = new Instance(runtime)
+    Vue.createInstance(instance.id, `
+      new Vue({
+        render: function (createElement) {
+          return createElement('div', {}, [
+            createElement('text', {}, []),
+            createElement('foo', {}, []),
+            createElement('bar', {}, []),
+            createElement('baz', {}, [])
+          ])
+        },
+        el: "body"
+      })
+    `)
+    expect(instance.getRealRoot()).toEqual({
+      type: 'div',
+      children: [{ type: 'text' }, { type: 'foo' }, { type: 'bar' }, { type: 'baz' }]
+    })
   })
 
   it('Vue.$getConfig', () => {
