@@ -458,29 +458,136 @@ describe('framework APIs', () => {
     expect(JSON.parse(instance2.getRealRoot().children[0].attr.value)).toEqual({ a: 1, b: 2, env: DEFAULT_ENV })
   })
 
-  it('Timer', () => {
-    // todo
-    // 1. create instance with timer
-    // 2. get one timer
-    // 3. destroy instance
-    // 4. no more timer received
+  it('Timer', (done) => {
+    const instance = new Instance(runtime)
+    instance.$create(`
+      new Vue({
+        data: {
+          x: 0,
+          y: 0
+        },
+        render: function (createElement) {
+          return createElement('div', {}, [
+            createElement('text', { attrs: { value: this.x + '-' + this.y }}, [])
+          ])
+        },
+        mounted: function () {
+          const now = Date.now()
+          let timer, timer2
+          setTimeout(() => {
+            this.x = 1
+            clearTimeout(timer)
+            clearInterval(timer2)
+            setInterval(() => {
+              this.y++
+            }, 600)
+          }, 1000)
+          timer = setTimeout(() => {
+            this.x = 3
+          }, 2000)
+          setTimeout(() => {
+            this.x = 3
+          }, 3000)
+          timer2 = setInterval(() => {
+            this.y++
+          }, 300)
+        },
+        el: "body"
+      })
+    `)
+    expect(instance.getRealRoot()).toEqual({
+      type: 'div',
+      children: [{ type: 'text', attr: { value: '0-0' }}]
+    })
+
+    setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('0-1')
+    }, 350)
+    setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('0-2')
+    }, 650)
+    setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('0-3')
+    }, 950)
+    setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('1-3')
+    }, 1050)
+    setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('1-4')
+    }, 1650)
+    setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('1-5')
+    }, 2250)
+    setTimeout(() => {
+      Vue.destroyInstance(instance.id)
+    }, 2500)
+    setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('1-5')
+      done()
+    }, 3100)
   })
 
   it('send function param', () => {
-    // todo
-    // 0. registration
-    // 1. create instance
-    // 2. call API with function
-    // 3. check callNative history
-    // 4. callback
-    // 5. receive result
+    Vue.registerModules({
+      foo: ['a']
+    })
+
+    const instance = new Instance(runtime)
+    Vue.createInstance(instance.id, `
+      const moduleFoo = __weex_require_module__('foo')
+      new Vue({
+        mounted: function () {
+          moduleFoo.a(a => a + 1)
+        },
+        render: function (createElement) {
+          return createElement('div', {}, [
+            createElement('text', { attrs: { value: 'Hello' }}, [])
+          ])
+        },
+        el: "body"
+      })
+    `)
+
+    let callbackId
+    instance.history.callNative.some(task => {
+      if (task.module === 'foo' && task.method === 'a') {
+        callbackId = task.args[0]
+        return true
+      }
+    })
+
+    expect(typeof callbackId).toEqual('string')
   })
 
   it('send Element param', () => {
-    // todo
-    // 0. registration
-    // 1. create instance
-    // 2. call API with Element
-    // 3. check callNative history
+    Vue.registerModules({
+      foo: ['a']
+    })
+
+    const instance = new Instance(runtime)
+    Vue.createInstance(instance.id, `
+      const moduleFoo = __weex_require_module__('foo')
+      new Vue({
+        mounted: function () {
+          moduleFoo.a(this.$refs.x)
+        },
+        render: function (createElement) {
+          return createElement('div', {}, [
+            createElement('text', { attrs: { value: 'Hello' }, ref: 'x' }, [])
+          ])
+        },
+        el: "body"
+      })
+    `)
+
+    let callbackId
+    instance.history.callNative.some(task => {
+      if (task.module === 'foo' && task.method === 'a') {
+        callbackId = task.args[0]
+        return true
+      }
+    })
+
+    expect(typeof callbackId).toEqual('string')
   })
 })
