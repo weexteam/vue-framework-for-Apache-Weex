@@ -53,7 +53,7 @@ function clear (obj) {
  * @param {object} data
  */
 export function createInstance (
-  instanceId, appCode, config /* {bundleUrl, debug} */, data) {
+  instanceId, appCode = '', config = {} /* {bundleUrl, debug} */, data) {
   // Set active instance id and put some information into `instances` map.
   activeId = instanceId
   instances[instanceId] = {
@@ -124,7 +124,7 @@ export function destroyInstance (instanceId) {
  */
 export function refreshInstance (instanceId, data) {
   const instance = instances[instanceId] || {}
-  if (!instance.app instanceof Vue) {
+  if (!(instance.app instanceof Vue)) {
     return new Error(`refreshInstance: instance ${instanceId} not found!`)
   }
   for (const key in data) {
@@ -140,7 +140,7 @@ export function refreshInstance (instanceId, data) {
  */
 export function getRoot (instanceId) {
   const instance = instances[instanceId] || {}
-  if (!instance.app instanceof Vue) {
+  if (!(instance.app instanceof Vue)) {
     return new Error(`getRoot: instance ${instanceId} not found!`)
   }
   return instance.app.$el.toJSON()
@@ -155,7 +155,7 @@ export function getRoot (instanceId) {
  */
 export function receiveTasks (instanceId, tasks) {
   const instance = instances[instanceId] || {}
-  if (!instance.app instanceof Vue) {
+  if (!(instance.app instanceof Vue)) {
     return new Error(`receiveTasks: instance ${instanceId} not found!`)
   }
   const { callbacks, document } = instance
@@ -289,7 +289,6 @@ function genModuleGetter (instanceId) {
     const nativeModule = modules[name] || []
     const output = {}
     for (const methodName in nativeModule) {
-      const defaultArgs = nativeModule[methodName]
       output[methodName] = (...args) => {
         let finalArgs = args.map(value => {
           return normalize(value, instance)
