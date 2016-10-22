@@ -18,6 +18,7 @@ describe('framework APIs', () => {
   let runtime
 
   beforeEach(() => {
+    Document.handler = sendTasks
     Vue.init({ Document, Element, Comment, sendTasks })
     runtime = new Runtime(Vue)
     sendTasksHandler = function () {
@@ -26,6 +27,7 @@ describe('framework APIs', () => {
   })
 
   afterEach(() => {
+    delete Document.handler
     Vue.reset()
   })
 
@@ -481,16 +483,16 @@ describe('framework APIs', () => {
             setInterval(() => {
               this.y++
             }, 600)
-          }, 1000)
+          }, 2000)
           timer = setTimeout(() => {
             this.x = 3
-          }, 2000)
+          }, 3000)
           setTimeout(() => {
             this.x = 3
-          }, 3000)
+          }, 4000)
           timer2 = setInterval(() => {
             this.y++
-          }, 300)
+          }, 900)
         },
         el: "body"
       })
@@ -502,29 +504,26 @@ describe('framework APIs', () => {
 
     setTimeout(() => {
       expect(instance.getRealRoot().children[0].attr.value).toEqual('0-1')
-    }, 350)
-    setTimeout(() => {
-      expect(instance.getRealRoot().children[0].attr.value).toEqual('0-2')
-    }, 650)
-    setTimeout(() => {
-      expect(instance.getRealRoot().children[0].attr.value).toEqual('0-3')
     }, 950)
     setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('0-2')
+    }, 1850)
+    setTimeout(() => {
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('1-2')
+    }, 2050)
+    setTimeout(() => {
       expect(instance.getRealRoot().children[0].attr.value).toEqual('1-3')
-    }, 1050)
+    }, 2650)
     setTimeout(() => {
       expect(instance.getRealRoot().children[0].attr.value).toEqual('1-4')
-    }, 1650)
-    setTimeout(() => {
-      expect(instance.getRealRoot().children[0].attr.value).toEqual('1-5')
-    }, 2250)
+    }, 3250)
     setTimeout(() => {
       Vue.destroyInstance(instance.id)
-    }, 2500)
+    }, 3500)
     setTimeout(() => {
-      expect(instance.getRealRoot().children[0].attr.value).toEqual('1-5')
+      expect(instance.getRealRoot().children[0].attr.value).toEqual('1-4')
       done()
-    }, 3100)
+    }, 4100)
   })
 
   it('send function param', () => {

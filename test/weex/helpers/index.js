@@ -30,6 +30,7 @@ export function prepareRuntime () {
 }
 
 export function resetRuntime () {
+  delete config.Document.handler
   Vue.reset()
 }
 
