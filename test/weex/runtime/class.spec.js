@@ -175,7 +175,7 @@ describe('generate class', () => {
     })
   })
 
-  xit('should be cleared', (done) => {
+  it('should be cleared', (done) => {
     const { render, staticRenderFns } = compileAndStringify(`
       <div>
         <text :class="['a', x]" @click="foo">Hello World</text>
