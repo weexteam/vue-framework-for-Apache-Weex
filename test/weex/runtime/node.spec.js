@@ -65,7 +65,7 @@ describe('node in render function', () => {
     // todo
   })
 
-  xit('should be generated with module diff', (done) => {
+  it('should be generated with module diff', (done) => {
     const instance = createInstance(runtime, `
       new Vue({
         data: {
@@ -148,7 +148,7 @@ describe('node in render function', () => {
         expect(result).toEqual({
           type: 'div',
           children: [
-            { type: 'text', attr: { value: 'Weex' }, style: { color: '#ff0000' }}
+            { type: 'text', attr: { value: 'Weex' }, style: { fontSize: '', color: '#ff0000' }}
           ]
         })
         done()
