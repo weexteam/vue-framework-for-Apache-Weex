@@ -96,7 +96,7 @@
     "typescript": "^2.0.2",
     "uglify-js": "^2.6.2",
     "webpack": "^1.13.2",
-    "weex-js-framework": "^0.17.0-alpha2",
+    "weex-js-framework": "^0.17.0-alpha3",
     "weex-vdom-tester": "^0.1.3"
   },
   "dependencies": {
