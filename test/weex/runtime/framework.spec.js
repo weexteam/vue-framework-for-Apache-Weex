@@ -1,6 +1,6 @@
 import * as Vue from '../../../dist/weex.common.js'
 import { DEFAULT_ENV, Runtime, Instance } from 'weex-vdom-tester'
-import { config } from 'weex-js-framework/src/runtime'
+import { config } from 'weex-js-runtime'
 
 import {
   createInstance,

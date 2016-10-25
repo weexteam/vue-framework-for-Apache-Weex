@@ -2,7 +2,7 @@ import { compile } from '../../../packages/weex-template-compiler'
 
 import * as Vue from '../../../dist/weex.common.js'
 import { Runtime, Instance } from 'weex-vdom-tester'
-import { config } from 'weex-js-framework/src/runtime'
+import { config } from 'weex-js-runtime'
 
 export function compileAndStringify (template) {
   const { render, staticRenderFns } = compile(template)
